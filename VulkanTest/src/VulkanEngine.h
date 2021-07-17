@@ -6,7 +6,7 @@
 //#include <vulkan/vulkan.h>
 #include <deque>
 #include <functional>
-#include <iostream>
+
 
 
 #include <vulkan/vulkan.h>
@@ -14,7 +14,21 @@
 
 
 
+class PipelineBuilder {
+public:
 
+	std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
+	VkPipelineVertexInputStateCreateInfo _vertexInputInfo;
+	VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
+	VkViewport _viewport;
+	VkRect2D _scissor;
+	VkPipelineRasterizationStateCreateInfo _rasterizer;
+	VkPipelineColorBlendAttachmentState _colorBlendAttachment;
+	VkPipelineMultisampleStateCreateInfo _multisampling;
+	VkPipelineLayout _pipelineLayout;
+
+	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
+};
 
 struct DeletionQueue
 {
@@ -57,8 +71,13 @@ public:
 	VmaAllocator _allocator;
 	VkRenderPass _renderPass;
 	std::vector<VkFramebuffer> _framebuffers;
-
-
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+	VkPipelineLayout _trianglePipelineLayout;
+	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
 	//depth resources
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
@@ -66,6 +85,11 @@ public:
 	{
 		InitVulkan();
 		InitSwapchain();
+		DefaultRenderpass();
+		InitFramebuffers();
+		InitCommands();
+		InitSyncStructures();
+		InitPipelines();
 
 	}
 
@@ -73,4 +97,9 @@ public:
 	void InitVulkan();
 	void DefaultRenderpass();
 	void InitFramebuffers();
+	void InitCommands();
+	void InitSyncStructures();
+	void InitPipelines();
+
+	bool LoadShaderModule(const char* filePath, VkShaderModule* outShaderModule);
 };
