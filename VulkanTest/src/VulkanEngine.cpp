@@ -60,7 +60,7 @@ void VulkanEngine::InitVulkan()
 	int SAMPLE_WIDTH = 1024;
 	int SAMPLE_HEIGHT = 768;
 	std::string PROJECT_NAME = "banana peeler";
-	GLFWwindow* window = glfwCreateWindow(SAMPLE_WIDTH, SAMPLE_HEIGHT, PROJECT_NAME.c_str(), nullptr, nullptr);
+	_window = glfwCreateWindow(SAMPLE_WIDTH, SAMPLE_HEIGHT, PROJECT_NAME.c_str(), nullptr, nullptr);
 	if (!glfwVulkanSupported())
 	{
 		printf("GLFW: Vulkan Not Supported\n");
@@ -83,7 +83,7 @@ void VulkanEngine::InitVulkan()
 
 	//glfw surface?
 	VkSurfaceKHR  surface;
-	VkResult err = glfwCreateWindowSurface(static_cast<VkInstance>(_instance), window, nullptr, &surface);
+	VkResult err = glfwCreateWindowSurface(static_cast<VkInstance>(_instance), _window, nullptr, &surface);
 
 	if (err != VK_SUCCESS)
 		throw std::runtime_error("Failed to create window!");
@@ -176,7 +176,7 @@ void VulkanEngine::DefaultRenderpass()
 		vkDestroyRenderPass(_device, _renderPass, nullptr);
 		});
 
- }
+}
 
 
 void VulkanEngine::InitFramebuffers()
@@ -355,7 +355,7 @@ void VulkanEngine::InitPipelines()
 		vkDestroyPipeline(_device, _trianglePipeline, nullptr);
 
 		vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
-	});
+		});
 }
 
 
@@ -461,3 +461,132 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 
 
 
+void VulkanEngine::Run()
+{
+
+
+	while (!glfwWindowShouldClose(_window))
+	{
+		glfwPollEvents();
+
+		Draw();
+	}
+
+
+
+	//Handle events on queue
+	//while (SDL_PollEvent(&e) != 0)
+	//{
+	//	//close the window when user alt-f4s or clicks the X button			
+	//	if (e.type == SDL_QUIT)
+	//	{
+	//		bQuit = true;
+	//	}
+	//	else if (e.type == SDL_KEYDOWN)
+	//	{
+	//		if (e.key.keysym.sym == SDLK_SPACE)
+	//		{
+	//			_selectedShader += 1;
+	//			if (_selectedShader > 1)
+	//			{
+	//				_selectedShader = 0;
+	//			}
+	//		}
+	//	}
+	//}
+	//
+	//draw();
+
+}
+
+void VulkanEngine::Draw()
+{
+	//wait until the gpu has finished rendering the last frame. Timeout of 1 second
+	VK_CHECK(vkWaitForFences(_device, 1, &_renderFence, true, 1000000000));
+	VK_CHECK(vkResetFences(_device, 1, &_renderFence));
+
+	//now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
+	VK_CHECK(vkResetCommandBuffer(_mainCommandBuffer, 0));
+
+	//request image from the swapchain
+	uint32_t swapchainImageIndex;
+	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, _presentSemaphore, nullptr, &swapchainImageIndex));
+
+	//naming it cmd for shorter writing
+	VkCommandBuffer cmd = _mainCommandBuffer;
+
+	//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
+	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+	//make a clear-color from frame number. This will flash with a 120 frame period.
+	VkClearValue clearValue;
+	float flash = abs(sin(_frameNumber / 120.f));
+	clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
+
+	//start the main renderpass. 
+	//We will use the clear color from above, and the framebuffer of the index the swapchain gave us
+	VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(_renderPass, _windowExtent, _framebuffers[swapchainImageIndex]);
+
+	//connect clear values
+	rpInfo.clearValueCount = 1;
+	rpInfo.pClearValues = &clearValue;
+
+	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+	//once we start adding rendering commands, they will go here
+	if (_selectedShader == 0)
+	{
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
+	}
+	else
+	{
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _redTrianglePipeline);
+	}
+	vkCmdDraw(cmd, 3, 1, 0, 0);
+
+	//finalize the render pass
+	vkCmdEndRenderPass(cmd);
+	//finalize the command buffer (we can no longer add commands, but it can now be executed)
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	//prepare the submission to the queue. 
+	//we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+	//we will signal the _renderSemaphore, to signal that rendering has finished
+
+	VkSubmitInfo submit = vkinit::submit_info(&cmd);
+	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+	submit.pWaitDstStageMask = &waitStage;
+
+	submit.waitSemaphoreCount = 1;
+	submit.pWaitSemaphores = &_presentSemaphore;
+
+	submit.signalSemaphoreCount = 1;
+	submit.pSignalSemaphores = &_renderSemaphore;
+
+	//submit command buffer to the queue and execute it.
+	// _renderFence will now block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _renderFence));
+
+	//prepare present
+	// this will put the image we just rendered to into the visible window.
+	// we want to wait on the _renderSemaphore for that, 
+	// as its necessary that drawing commands have finished before the image is displayed to the user
+	VkPresentInfoKHR presentInfo = vkinit::present_info();
+
+	presentInfo.pSwapchains = &_swapchain;
+	presentInfo.swapchainCount = 1;
+
+	presentInfo.pWaitSemaphores = &_renderSemaphore;
+	presentInfo.waitSemaphoreCount = 1;
+
+	presentInfo.pImageIndices = &swapchainImageIndex;
+
+	VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+
+	//increase the number of frames drawn
+	_frameNumber++;
+}

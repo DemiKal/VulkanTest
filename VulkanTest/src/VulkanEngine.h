@@ -12,7 +12,7 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
-
+struct GLFWwindow;
 
 class PipelineBuilder {
 public:
@@ -81,6 +81,11 @@ public:
 	//depth resources
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
+	bool _isInitialized = false;
+	GLFWwindow* _window;
+	int _frameNumber;
+	int _selectedShader;
+
 	void Init()
 	{
 		InitVulkan();
@@ -90,7 +95,7 @@ public:
 		InitCommands();
 		InitSyncStructures();
 		InitPipelines();
-
+		_isInitialized = true;
 	}
 
 	void InitSwapchain();
@@ -100,6 +105,9 @@ public:
 	void InitCommands();
 	void InitSyncStructures();
 	void InitPipelines();
+	void Run();
+	void Draw();
 
 	bool LoadShaderModule(const char* filePath, VkShaderModule* outShaderModule);
+	void draw();
 };
