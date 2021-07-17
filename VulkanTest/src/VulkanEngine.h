@@ -56,6 +56,7 @@ public:
 	VkFormat _depthFormat;
 	VmaAllocator _allocator;
 	VkRenderPass _renderPass;
+	std::vector<VkFramebuffer> _framebuffers;
 
 
 	//depth resources
@@ -71,4 +72,5 @@ public:
 	void InitSwapchain();
 	void InitVulkan();
 	void DefaultRenderpass();
+	void InitFramebuffers();
 };
