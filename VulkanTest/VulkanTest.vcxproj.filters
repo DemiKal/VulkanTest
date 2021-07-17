@@ -24,12 +24,21 @@
     <ClCompile Include="src\VulkanEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\vk_initializers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\VkBootstrap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\VulkanEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vk_initializers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vk_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

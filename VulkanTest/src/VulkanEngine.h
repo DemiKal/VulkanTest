@@ -55,6 +55,8 @@ public:
 	VkFormat _swapchainImageFormat;
 	VkFormat _depthFormat;
 	VmaAllocator _allocator;
+	VkRenderPass _renderPass;
+
 
 	//depth resources
 	VkImageView _depthImageView;
@@ -68,8 +70,5 @@ public:
 
 	void InitSwapchain();
 	void InitVulkan();
-
-	VkImageCreateInfo  ImageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
-
-	VkImageViewCreateInfo  ImageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+	void DefaultRenderpass();
 };
