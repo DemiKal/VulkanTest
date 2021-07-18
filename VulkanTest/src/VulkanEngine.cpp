@@ -3,13 +3,13 @@
 
 
 #include "VulkanEngine.h"
-
-//#include <vk_mem_alloc.h>
 #include <VkBootstrap.h>
 #include <GLFW/glfw3.h>
 #include <vk_initializers.h>
 #include <iostream>
 #include <fstream>
+
+
 using namespace std;
 #define VK_CHECK(x)                                                 \
 	do                                                              \
@@ -25,6 +25,7 @@ using namespace std;
 
 void VulkanEngine::InitSwapchain()
 {
+
 	vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU,_device,_surface };
 
 	vkb::Swapchain vkbSwapchain = swapchainBuilder
@@ -473,29 +474,7 @@ void VulkanEngine::Run()
 	}
 
 
-
-	//Handle events on queue
-	//while (SDL_PollEvent(&e) != 0)
-	//{
-	//	//close the window when user alt-f4s or clicks the X button			
-	//	if (e.type == SDL_QUIT)
-	//	{
-	//		bQuit = true;
-	//	}
-	//	else if (e.type == SDL_KEYDOWN)
-	//	{
-	//		if (e.key.keysym.sym == SDLK_SPACE)
-	//		{
-	//			_selectedShader += 1;
-	//			if (_selectedShader > 1)
-	//			{
-	//				_selectedShader = 0;
-	//			}
-	//		}
-	//	}
-	//}
-	//
-	//draw();
+ 
 
 }
 
