@@ -465,7 +465,6 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 void VulkanEngine::Run()
 {
 
-
 	while (!glfwWindowShouldClose(_window))
 	{
 		glfwPollEvents();
