@@ -46,7 +46,7 @@ public:
 	void TearDownFramebuffers(Context& context);
 
  
-
+	void InitLogger();
 
 	Context m_Context;
 	GLFWwindow* m_GLFWwindow;

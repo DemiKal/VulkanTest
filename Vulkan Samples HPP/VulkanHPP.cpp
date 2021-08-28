@@ -4,17 +4,30 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_DLL
 
-#include <GLFW/glfw3.h>
 
 #include "VulkanHPP.h"
-#include <fmt/core.h>
-#include "GLSLCompiler.h"
+
+__pragma(warning(push, 0))
+#include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
-#include <fstream>
+#include <fmt/format.h>
+//#include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+__pragma(warning(pop))
+
+
+#define LOGGER_FORMAT "[%^%l%$] %v"
+#define ROOT_PATH_SIZE 48
+#define __FILENAME__ (static_cast<const char *>(__FILE__) + ROOT_PATH_SIZE)
+
+#define LOGI(...) spdlog::info(__VA_ARGS__);
+#define LOGW(...) spdlog::warn(__VA_ARGS__);
+#define LOGE(...) spdlog::error("[{}:{}] {}", __FILENAME__, __LINE__, fmt::format(__VA_ARGS__));
+#define LOGD(...) fmt::print(__VA_ARGS__); //spdlog::debug(__VA_ARGS__);
+
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
-#define LOGE(...) fmt::print("Error!");
-#define LOGI(...) fmt::print(__VA_ARGS__);
 
 void VulkanHPP::RunLoop()
 {
@@ -192,6 +205,7 @@ vk::Result VulkanHPP::AcquireNextImage(Context& context, uint32_t* image)
 }
 void VulkanHPP::Prepare()
 {
+	InitLogger();
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
 	SelectPhysicalDeviceAndInstance(m_Context);
@@ -612,7 +626,7 @@ void VulkanHPP::InitWindow()
 
 	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_GLFWwindow, this);
-	glfwSetWindowSizeCallback(m_GLFWwindow,  window_size_callback);
+	glfwSetWindowSizeCallback(m_GLFWwindow, window_size_callback);
 }
 
 
@@ -687,7 +701,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 	}
 	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
 	{
-		LOGE("Validation Layer: Warning: {}: {}", layer_prefix, message);
+		LOGW("Validation Layer: Warning: {}: {}", layer_prefix, message);
 	}
 	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
 	{
@@ -777,10 +791,10 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 	//todo use spdlog!
 	if (ValidateLayers(requested_validation_layers, supported_validation_layers))
 	{
-		fmt::print("Enabled Validation Layers:");
+		//fmt::print("Enabled Validation Layers:");
 		for (const auto& layer : requested_validation_layers)
 		{
-			fmt::print("	\t{}", layer);
+			//fmt::print("	\t{}", layer);
 		}
 	}
 	else
@@ -813,7 +827,7 @@ bool VulkanHPP::ValidateExtensions(const std::vector<const char*>& required, con
 {
 	// inner find_if gives true if the extension was not found
 	// outer find_if gives true if none of the extensions were not found, that is if all extensions were found
-	return std::find_if(required.begin(),
+	auto requiredButNotFoundIt = std::find_if(required.begin(),
 		required.end(),
 		[&available](auto extension) {
 			return std::find_if(available.begin(),
@@ -821,7 +835,13 @@ bool VulkanHPP::ValidateExtensions(const std::vector<const char*>& required, con
 				[&extension](auto const& ep) {
 					return strcmp(ep.extensionName, extension) == 0;
 				}) == available.end();
-		}) == required.end();
+		});
+
+	if (requiredButNotFoundIt != required.end())
+	{
+		LOGE("Validation Layer {} not found", *requiredButNotFoundIt);
+	}
+	return  requiredButNotFoundIt == required.end();
 }
 
 bool ValidateLayers(const std::vector<const char*>& required, const std::vector<vk::LayerProperties>& available)
@@ -903,33 +923,7 @@ void VulkanHPP::InitPerFrame(Context& context, PerFrame& per_frame)
 }
 
 
-std::vector<uint8_t> read_binary_file(const std::string& filename, const uint32_t count)
-{
-	std::vector<uint8_t> data;
 
-	std::ifstream file;
-
-	file.open(filename, std::ios::in | std::ios::binary);
-
-	if (!file.is_open())
-	{
-		throw std::runtime_error("Failed to open file: " + filename);
-	}
-
-	uint64_t read_count = count;
-	if (count == 0)
-	{
-		file.seekg(0, std::ios::end);
-		read_count = static_cast<uint64_t>(file.tellg());
-		file.seekg(0, std::ios::beg);
-	}
-
-	data.resize(static_cast<size_t>(read_count));
-	file.read(reinterpret_cast<char*>(data.data()), read_count);
-	file.close();
-
-	return data;
-}
 
 VkShaderStageFlagBits  find_shader_stage(const std::string& ext)
 {
@@ -983,21 +977,7 @@ void VulkanHPP::Resize(const uint32_t, const uint32_t)
 	InitSwapchain(m_Context);
 	InitFrameBuffers(m_Context);
 }
-
-//void VulkanHPP::InitFramebuffers(Context& context)
-//{
-//	vk::Device device = context.device;
-//
-//	// Create framebuffer for each swapchain image view
-//	for (auto& image_view : context.swapchain_image_views)
-//	{
-//		// Build the framebuffer.
-//		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
-//
-//		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
-//	}
-//}
-
+ 
 void VulkanHPP::TearDownFramebuffers(Context& context)
 {
 	// Wait until device is idle before teardown.
@@ -1009,4 +989,22 @@ void VulkanHPP::TearDownFramebuffers(Context& context)
 	}
 
 	context.swapchain_framebuffers.clear();
+}
+
+void VulkanHPP::InitLogger()
+{
+
+	std::vector<spdlog::sink_ptr> sinks;
+	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+	auto logger = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
+	 #ifdef VKB_DEBUG
+	 	logger->set_level(spdlog::level::debug);
+	 #else
+	 	logger->set_level(spdlog::level::info);
+	 #endif
+	 
+	 	logger->set_pattern(LOGGER_FORMAT);
+	 	spdlog::set_default_logger(logger);
+	 	LOGI("Logger initialized");
+
 }
