@@ -21,12 +21,18 @@
     <ClCompile Include="VulkanHPP.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GLSLCompiler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VulkanHPP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="VulkanStructs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GLSLCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

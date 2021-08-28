@@ -142,10 +142,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="GLSLCompiler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="VulkanHPP.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GLSLCompiler.h" />
     <ClInclude Include="VulkanHPP.h" />
     <ClInclude Include="VulkanStructs.h" />
   </ItemGroup>

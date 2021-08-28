@@ -191,16 +191,14 @@ int main()
             outColor = vec4(fragColor, 1.0);
         }
         )fragmentShader";
-
+		
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_performance);
 
 	shaderc::SpvCompilationResult vertShaderModule =
 		compiler.CompileGlslToSpv(kShaderSource, shaderc_glsl_vertex_shader, "vertex shader", options);
-	if (vertShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) {
-		std::cerr << vertShaderModule.GetErrorMessage();
-	}
+	if (vertShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) {		std::cerr << vertShaderModule.GetErrorMessage();	}
 	auto vertShaderCode = std::vector<uint32_t>{ vertShaderModule.cbegin(), vertShaderModule.cend() };
 	auto vertSize = std::distance(vertShaderCode.begin(), vertShaderCode.end());
 	auto vertShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, vertSize * sizeof(uint32_t), vertShaderCode.data() };
