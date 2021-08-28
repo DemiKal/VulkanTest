@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vulkan hpp", "vulkan hpp\vu
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Vulkan normal", "Vulkan normal\Vulkan normal.vcxproj", "{DE32F7E1-53B6-49CD-802F-B5FB9E61347A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Vulkan Samples HPP", "Vulkan Samples HPP\Vulkan Samples HPP.vcxproj", "{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -39,6 +41,14 @@ Global
 		{DE32F7E1-53B6-49CD-802F-B5FB9E61347A}.Release|x64.Build.0 = Release|x64
 		{DE32F7E1-53B6-49CD-802F-B5FB9E61347A}.Release|x86.ActiveCfg = Release|Win32
 		{DE32F7E1-53B6-49CD-802F-B5FB9E61347A}.Release|x86.Build.0 = Release|Win32
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Debug|x64.ActiveCfg = Debug|x64
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Debug|x64.Build.0 = Debug|x64
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Debug|x86.ActiveCfg = Debug|Win32
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Debug|x86.Build.0 = Debug|Win32
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Release|x64.ActiveCfg = Release|x64
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Release|x64.Build.0 = Release|x64
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Release|x86.ActiveCfg = Release|Win32
+		{F679B712-5D0B-4EF7-A58C-F7318E8A6E06}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
