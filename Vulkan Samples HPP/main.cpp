@@ -5,6 +5,7 @@ int main()
 {
     VulkanHPP vkhpp;
     vkhpp.Prepare();
+    vkhpp.RunLoop();
 } 
 
  

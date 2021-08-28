@@ -16,6 +16,167 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #define LOGE(...) fmt::print("Error!");
 #define LOGI(...) fmt::print(__VA_ARGS__);
 
+void VulkanHPP::RunLoop()
+{
+	constexpr float deltaTime = 1. / 60.;
+	while (!glfwWindowShouldClose(m_GLFWwindow))
+	{
+		glfwPollEvents();
+		Update(deltaTime);
+	}
+}
+
+
+
+void VulkanHPP::Update(float deltaTime)
+{
+	uint32_t index;
+
+	auto res = AcquireNextImage(m_Context, &index);
+
+	// Handle outdated error in acquire.
+	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
+	{
+		//resize(context.swapchain_dimensions.width, context.swapchain_dimensions.height);
+		//res = acquire_next_image(context, &index);
+	}
+
+	if (res != vk::Result::eSuccess)
+	{
+		m_Context.queue.waitIdle();
+		return;
+	}
+
+	RenderTriangle(m_Context, index);
+	res = PresentImage(m_Context, index);
+
+	// Handle Outdated error in present.
+	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
+	{
+		//resize(context.swapchain_dimensions.width, context.swapchain_dimensions.height);
+	}
+	else if (res != vk::Result::eSuccess)
+	{
+		LOGE("Failed to present swapchain image.");
+	}
+}
+
+vk::Result VulkanHPP::PresentImage(Context& context, uint32_t index)
+{
+	vk::PresentInfoKHR present(context.per_frame[index].swapchain_release_semaphore, context.swapchain, index);
+	// Present swapchain image
+	return context.queue.presentKHR(present);
+}
+
+void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
+{
+	// Render to this framebuffer.
+	vk::Framebuffer framebuffer = context.swapchain_framebuffers[swapchain_index];
+
+	// Allocate or re-use a primary command buffer.
+	vk::CommandBuffer cmd = context.per_frame[swapchain_index].primary_command_buffer;
+
+	// We will only submit this once before it's recycled.
+	vk::CommandBufferBeginInfo begin_info(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	// Begin command recording
+	cmd.begin(begin_info);
+
+	// Set clear color values.
+	vk::ClearValue clear_value;
+	clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
+
+	// Begin the render pass.
+	vk::RenderPassBeginInfo rp_begin(context.render_pass, framebuffer, { {0, 0}, {context.swapchain_dimensions.width, context.swapchain_dimensions.height} },
+		clear_value);
+	// We will add draw commands in the same command buffer.
+	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
+
+	// Bind the graphics pipeline.
+	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
+
+	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
+	// Set viewport dynamically
+	cmd.setViewport(0, vp);
+
+	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
+	// Set scissor dynamically
+	cmd.setScissor(0, scissor);
+
+	// Draw three vertices with one instance.
+	cmd.draw(3, 1, 0, 0);
+
+	// Complete render pass.
+	cmd.endRenderPass();
+
+	// Complete the command buffer.
+	cmd.end();
+
+	// Submit it to the queue with a release semaphore.
+	if (!context.per_frame[swapchain_index].swapchain_release_semaphore)
+	{
+		context.per_frame[swapchain_index].swapchain_release_semaphore = context.device.createSemaphore({});
+	}
+
+	vk::PipelineStageFlags wait_stage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+	vk::SubmitInfo info(context.per_frame[swapchain_index].swapchain_acquire_semaphore, wait_stage, cmd,
+		context.per_frame[swapchain_index].swapchain_release_semaphore);
+	// Submit command buffer to graphics queue
+	context.queue.submit(info, context.per_frame[swapchain_index].queue_submit_fence);
+}
+vk::Result VulkanHPP::AcquireNextImage(Context& context, uint32_t* image)
+{
+	vk::Semaphore acquire_semaphore;
+	if (context.recycled_semaphores.empty())
+	{
+		acquire_semaphore = context.device.createSemaphore({});
+	}
+	else
+	{
+		acquire_semaphore = context.recycled_semaphores.back();
+		context.recycled_semaphores.pop_back();
+	}
+
+	vk::Result res;
+	std::tie(res, *image) = context.device.acquireNextImageKHR(context.swapchain, UINT64_MAX, acquire_semaphore);
+
+	if (res != vk::Result::eSuccess)
+	{
+		context.recycled_semaphores.push_back(acquire_semaphore);
+		return res;
+	}
+
+	// If we have outstanding fences for this swapchain image, wait for them to complete first.
+	// After begin frame returns, it is safe to reuse or delete resources which
+	// were used previously.
+	//
+	// We wait for fences which completes N frames earlier, so we do not stall,
+	// waiting for all GPU work to complete before this returns.
+	// Normally, this doesn't really block at all,
+	// since we're waiting for old frames to have been completed, but just in case.
+	if (context.per_frame[*image].queue_submit_fence)
+	{
+		context.device.waitForFences(context.per_frame[*image].queue_submit_fence, true, UINT64_MAX);
+		context.device.resetFences(context.per_frame[*image].queue_submit_fence);
+	}
+
+	if (context.per_frame[*image].primary_command_pool)
+	{
+		context.device.resetCommandPool(context.per_frame[*image].primary_command_pool);
+	}
+
+	// Recycle the old semaphore back into the semaphore manager.
+	vk::Semaphore old_semaphore = context.per_frame[*image].swapchain_acquire_semaphore;
+
+	if (old_semaphore)
+	{
+		context.recycled_semaphores.push_back(old_semaphore);
+	}
+
+	context.per_frame[*image].swapchain_acquire_semaphore = acquire_semaphore;
+
+	return vk::Result::eSuccess;
+}
 void VulkanHPP::Prepare()
 {
 	InitWindow();
@@ -29,6 +190,21 @@ void VulkanHPP::Prepare()
 	InitSwapchain(m_Context);
 	InitRenderPass(m_Context);
 	InitPipeline(m_Context);
+	InitFrameBuffers(m_Context);
+}
+
+void VulkanHPP::InitFrameBuffers(Context& context)
+{
+	vk::Device device = context.device;
+
+	// Create framebuffer for each swapchain image view
+	for (auto& image_view : context.swapchain_image_views)
+	{
+		// Build the framebuffer.
+		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+
+		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
+	}
 }
 
 void VulkanHPP::InitPipeline(Context& context)
@@ -74,7 +250,7 @@ void VulkanHPP::InitPipeline(Context& context)
 	//std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
 	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, loadShaderModule(context, "triangle.vert"), "main"),
 	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, loadShaderModule(context, "triangle.frag"), "main") };
-	const std::string kShaderSource = R"vertexShader(
+	const std::string kShaderSource = R"vertexShader(#version 320 es
 precision mediump float;
 
 layout(location = 0) out vec3 out_color;
@@ -99,7 +275,7 @@ void main()
 }
 )vertexShader";
 
-	const std::string fragmentShader = R"fragmentShader(
+	const std::string fragmentShader = R"fragmentShader(#version 320 es
 precision mediump float;
 
 layout(location = 0) in vec3 in_color;
@@ -117,10 +293,13 @@ void main()
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_performance);
 
-	shaderc::SpvCompilationResult vertShaderModule =
+	shaderc::SpvCompilationResult vertShaderResult =
 		compiler.CompileGlslToSpv(kShaderSource, shaderc_glsl_vertex_shader, "vertex shader", options);
-	if (vertShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) { fmt::print(vertShaderModule.GetErrorMessage()); }
-	auto vertShaderCode = std::vector<uint32_t>{ vertShaderModule.cbegin(), vertShaderModule.cend() };
+
+	auto vertStatus = vertShaderResult.GetCompilationStatus();
+	if (vertStatus != shaderc_compilation_status_success) { fmt::print(vertShaderResult.GetErrorMessage()); }
+
+	auto vertShaderCode = std::vector<uint32_t>{ vertShaderResult.cbegin(), vertShaderResult.cend() };
 	auto vertSize = std::distance(vertShaderCode.begin(), vertShaderCode.end());
 	auto vertShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, vertSize * sizeof(uint32_t), vertShaderCode.data() };
 	auto vertexShaderModule = context.device.createShaderModule(vertShaderCreateInfo);
@@ -438,7 +617,7 @@ vk::SurfaceKHR VulkanHPP::CreateSurface(vk::Instance instance, vk::PhysicalDevic
 
 	return surface;
 }
-void VulkanHPP::SelectPhysicalDeviceAndInstance(Context context)
+void VulkanHPP::SelectPhysicalDeviceAndInstance(Context& context)
 {
 	std::vector<vk::PhysicalDevice> gpus = context.instance.enumeratePhysicalDevices();
 
@@ -765,4 +944,3 @@ VkShaderStageFlagBits  find_shader_stage(const std::string& ext)
 	throw std::runtime_error("No Vulkan shader stage found for the file extension name.");
 };
 
- 
