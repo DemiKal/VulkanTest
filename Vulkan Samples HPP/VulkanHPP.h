@@ -7,6 +7,7 @@ class VulkanHPP
 {
 public:
 	void RunLoop();
+	//void window_size_callback(GLFWwindow* window, int width, int height);
 	void Update(float deltaTime);
 	vk::Result PresentImage(Context& context, uint32_t index);
 	void RenderTriangle(Context& context, uint32_t swapchain_index);
@@ -30,13 +31,19 @@ public:
 	void SelectPhysicalDeviceAndInstance(Context& context);
 
 
-private:
+ 
 	void InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers);
 	bool ValidateExtensions(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available);
 
 	void TeardownPerFrame(Context& context, PerFrame& per_frame);
 
 	void InitPerFrame(Context& context, PerFrame& per_frame);
+
+	void Resize(const uint32_t, const uint32_t);
+
+	//void InitFramebuffers(Context& context);
+
+	void TearDownFramebuffers(Context& context);
 
  
 

@@ -28,6 +28,19 @@ void VulkanHPP::RunLoop()
 
 
 
+void window_size_callback(GLFWwindow* window, int width, int height)
+{
+	if (auto glfw_window = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
+
+	{
+		//auto& platform = glfw_window->get_platform();
+		glfw_window->Resize(width, height);
+		glfw_window->m_Width = width;
+		glfw_window->m_Height = height;
+		//glfw_window->resize(width, height);
+	}
+}
+
 void VulkanHPP::Update(float deltaTime)
 {
 	uint32_t index;
@@ -37,8 +50,8 @@ void VulkanHPP::Update(float deltaTime)
 	// Handle outdated error in acquire.
 	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
 	{
-		//resize(context.swapchain_dimensions.width, context.swapchain_dimensions.height);
-		//res = acquire_next_image(context, &index);
+		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
+		res = AcquireNextImage(m_Context, &index);
 	}
 
 	if (res != vk::Result::eSuccess)
@@ -53,7 +66,7 @@ void VulkanHPP::Update(float deltaTime)
 	// Handle Outdated error in present.
 	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
 	{
-		//resize(context.swapchain_dimensions.width, context.swapchain_dimensions.height);
+		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
 	}
 	else if (res != vk::Result::eSuccess)
 	{
@@ -206,6 +219,7 @@ void VulkanHPP::InitFrameBuffers(Context& context)
 		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
 	}
 }
+
 
 void VulkanHPP::InitPipeline(Context& context)
 {
@@ -595,7 +609,10 @@ void VulkanHPP::InitWindow()
 
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
+	glfwSetWindowUserPointer(m_GLFWwindow, this);
+	glfwSetWindowSizeCallback(m_GLFWwindow,  window_size_callback);
 }
 
 
@@ -944,3 +961,52 @@ VkShaderStageFlagBits  find_shader_stage(const std::string& ext)
 	throw std::runtime_error("No Vulkan shader stage found for the file extension name.");
 };
 
+void VulkanHPP::Resize(const uint32_t, const uint32_t)
+{
+	if (!m_Context.device)
+	{
+		return;
+	}
+
+	vk::SurfaceCapabilitiesKHR surface_properties = m_Context.gpu.getSurfaceCapabilitiesKHR(m_Context.surface);
+
+	// Only rebuild the swapchain if the dimensions have changed
+	if (surface_properties.currentExtent.width == m_Context.swapchain_dimensions.width &&
+		surface_properties.currentExtent.height == m_Context.swapchain_dimensions.height)
+	{
+		return;
+	}
+
+	m_Context.device.waitIdle();
+	TearDownFramebuffers(m_Context);
+
+	InitSwapchain(m_Context);
+	InitFrameBuffers(m_Context);
+}
+
+//void VulkanHPP::InitFramebuffers(Context& context)
+//{
+//	vk::Device device = context.device;
+//
+//	// Create framebuffer for each swapchain image view
+//	for (auto& image_view : context.swapchain_image_views)
+//	{
+//		// Build the framebuffer.
+//		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+//
+//		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
+//	}
+//}
+
+void VulkanHPP::TearDownFramebuffers(Context& context)
+{
+	// Wait until device is idle before teardown.
+	context.queue.waitIdle();
+
+	for (auto& framebuffer : context.swapchain_framebuffers)
+	{
+		context.device.destroyFramebuffer(framebuffer);
+	}
+
+	context.swapchain_framebuffers.clear();
+}
