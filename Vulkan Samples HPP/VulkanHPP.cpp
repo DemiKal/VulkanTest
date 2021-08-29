@@ -63,14 +63,19 @@ struct Vertex {
 struct Mesh
 {
 	AllocatedBuffer m_Buffer;
-	std::vector<Vertex> vertexBuffer{
-		   { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-		   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-		   { { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
-	};
+	std::vector<Vertex> vertexBuffer;
+	std::vector<uint32_t> indexBuffer;
+	Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
 
-Mesh trimesh;
+Mesh triMesh = Mesh(
+	{
+	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
+	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+	}, { 1, 2, 3 });
+
+ 
 
 void VulkanHPP::Prepare()
 {
@@ -102,9 +107,10 @@ void VulkanHPP::InitAllocator(Context& context)
 	vmaCreateAllocator(&allocatorInfo, &m_Allocator);
 }
 
-void VulkanHPP::InitVertices(Context& context)
+template <typename T>
+void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>& buffer)
 {
-	const size_t bufferSize = trimesh.vertexBuffer.size() * sizeof(Vertex);
+	const size_t bufferSize = buffer.size() * sizeof(T);
 	vk::BufferCreateInfo stagingBufferInfo({}, bufferSize, vk::BufferUsageFlagBits::eTransferSrc);
 	const VkBufferCreateInfo C_stagingBufferInfo = stagingBufferInfo;
 
@@ -113,18 +119,12 @@ void VulkanHPP::InitVertices(Context& context)
 
 	AllocatedBuffer stagingBuffer;
 
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &C_stagingBufferInfo, &vmaallocInfo,
-		&stagingBuffer._buffer,
-		&stagingBuffer._allocation,
-		nullptr));
-
-
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &C_stagingBufferInfo, &vmaallocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
 
 	void* data;
 	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
-	//if (err2) LOGE("VMA: error mapping memory!");
 
-	memcpy(data, trimesh.vertexBuffer.data(), trimesh.vertexBuffer.size() * sizeof(Vertex));
+	memcpy(data, buffer.data(), buffer.size() * sizeof(T));
 
 	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
 
@@ -143,11 +143,8 @@ void VulkanHPP::InitVertices(Context& context)
 	//let the VMA library know that this data should be gpu native	
 	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo,
-		&trimesh.m_Buffer._buffer,
-		&trimesh.m_Buffer._allocation,
-		nullptr));
-
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, &allocBuffer._buffer, &allocBuffer._allocation, nullptr));
+	 
 
 	///submit directly with command buffer
 	//VkCommandBuffer cmd;
@@ -159,11 +156,6 @@ void VulkanHPP::InitVertices(Context& context)
 	//cmdBuffAllocateInfo.setCommandBufferCount(1);
 	//cmdBuffAllocateInfo.setCommandPool(context.m_UploadContext._commandPool);
 	//cmdBuffAllocateInfo.setLevel(vk::CommandBufferLevel::ePrimary);
-
-
-
-
-
 	//const VkCommandBufferAllocateInfo cmdAllocInfo = cmdBuffAllocateInfo;
 	//context.device.createcommandbuff
 	//VK_CHECK(vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &cmdAllocInfo));
@@ -201,7 +193,7 @@ void VulkanHPP::InitVertices(Context& context)
 	copy.dstOffset = 0;
 	copy.srcOffset = 0;
 	copy.size = bufferSize;
-	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, trimesh.m_Buffer._buffer, 1, &copy);
+	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, allocBuffer._buffer, 1, &copy);
 	////////////////////////				lambda
 
 	VK_CHECK(vkEndCommandBuffer(cmd));
@@ -217,11 +209,10 @@ void VulkanHPP::InitVertices(Context& context)
 	submitInfo.signalSemaphoreCount = 0;
 	submitInfo.pSignalSemaphores = nullptr;
 	vk::SubmitInfo submitInfoHPP = submitInfo;
-	//VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext._uploadFence));
+
 	context.queue.submit(submitInfoHPP, context.m_UploadContext._uploadFence);
 	context.device.waitForFences(context.m_UploadContext._uploadFence, VK_TRUE, 9999999999);
-	//context.device.resetCommandPool({ 1, &context.m_UploadContext._commandPool }, vk::CommandBufferResetFlagBits::eReleaseResources);
-	context.device.resetFences( context.m_UploadContext._uploadFence  );
+	context.device.resetFences(context.m_UploadContext._uploadFence);
 	context.device.resetCommandPool(context.m_UploadContext._commandPool);
 
 	//VkSubmitInfo submit = vkinit::submit_info(&cmd);
@@ -244,7 +235,6 @@ void VulkanHPP::InitVertices(Context& context)
 	//submit command buffer to the queue and execute it.
 	// _renderFence will now block until the graphic commands finish execution
 	//VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, context._uploadFence));
-
 	//auto cmdBuffer = vk::CommandBuffer{ cmd };
 	//auto submitInfo = vk::SubmitInfo{};
 	//submitInfo.setCommandBuffers({ 1, &cmdBuffer });
@@ -257,6 +247,12 @@ void VulkanHPP::InitVertices(Context& context)
 	//context.device.resetCommandPool(cmdPool);
 
 	vmaDestroyBuffer(m_Allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+}
+
+
+void VulkanHPP::InitVertices(Context& context)
+{
+	StageBuffer(context, triMesh.m_Buffer, triMesh.vertexBuffer);
 }
 
 void VulkanHPP::InitWindow()
@@ -828,7 +824,7 @@ void VulkanHPP::InitFrameBuffers(Context& context)
 
 void VulkanHPP::RunLoop()
 {
-	constexpr float deltaTime = 1. / 60.;
+	constexpr float deltaTime = 1.f / 60.f;
 	while (!glfwWindowShouldClose(m_GLFWwindow))
 	{
 		glfwPollEvents();
@@ -916,7 +912,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Bind the graphics pipeline.
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
-	vk::Buffer buffer{ trimesh.m_Buffer._buffer };
+	vk::Buffer buffer{ triMesh.m_Buffer._buffer };
 	cmd.bindVertexBuffers(0, buffer, { 0 });
 
 	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
