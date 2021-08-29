@@ -135,7 +135,7 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 
 	AllocatedBuffer stagingBuffer;
 
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &C_stagingBufferInfo, &vmaallocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
+	VK_CHECK(vmaCreateBuffer(m_Allocator, reinterpret_cast<VkBufferCreateInfo*>(&stagingBufferInfo), &vmaallocInfo, &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr));
 
 	void* data;
 	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
@@ -148,14 +148,19 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 	////  COPY 1 DONE!  ////
 	////////////////////////
 
-	VkBufferCreateInfo vertexBufferInfo = {};
-	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	vertexBufferInfo.pNext = nullptr;
-	//this is the total size, in bytes, of the buffer we are allocating
-	vertexBufferInfo.size = bufferSize;
-	//this buffer is going to be used as a Vertex Buffer
-	vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	//C style
+	//VkBufferCreateInfo vertexBufferInfo = {};
+	//vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//vertexBufferInfo.pNext = nullptr;
+	////this is the total size, in bytes, of the buffer we are allocating
+	//vertexBufferInfo.size = bufferSize;
+	////this buffer is going to be used as a Vertex Buffer
+	//vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
+	//C++ style
+	auto usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	auto vkBuffer_CI = vk::BufferCreateInfo{ {}, bufferSize, usage };
+	VkBufferCreateInfo vertexBufferInfo = vkBuffer_CI; //convert!
 	//let the VMA library know that this data should be gpu native	
 	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
@@ -183,50 +188,67 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 	//VkCommandBufferBeginInfo cmdBeginInfo = cmdBufferBeginInfo;
 	//VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-	VkCommandBuffer cmd;
+	//VkCommandBuffer cmd;
+
+	auto cmdBuffer_AI = vk::CommandBufferAllocateInfo{ context.m_UploadContext._commandPool, vk::CommandBufferLevel::ePrimary, 1 };
+	auto allocatedCmdBuffers = context.device.allocateCommandBuffers(cmdBuffer_AI );
+	vk::CommandBuffer cmdBuffer = allocatedCmdBuffers.front();
 
 	//allocate the default command buffer that we will use for rendering
-	VkCommandBufferAllocateInfo cmdAllocInfo; //= vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
-	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdAllocInfo.commandPool = context.m_UploadContext._commandPool;
-	cmdAllocInfo.commandBufferCount = 1;
-	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmdAllocInfo.pNext = nullptr;
-	VK_CHECK(vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &cmd));
+	////VkCommandBufferAllocateInfo cmdAllocInfo; //= vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
+	////cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	////cmdAllocInfo.commandPool = context.m_UploadContext._commandPool;
+	////cmdAllocInfo.commandBufferCount = 1;
+	////cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	////cmdAllocInfo.pNext = nullptr;
+	////VK_CHECK(vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &cmd));
 
 	//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
-	VkCommandBufferBeginInfo cmdBeginInfo;
-	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBeginInfo.pNext = nullptr;
-	cmdBeginInfo.pInheritanceInfo = nullptr;
-	cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	////VkCommandBufferBeginInfo cmdBeginInfo;
+	////cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	////cmdBeginInfo.pNext = nullptr;
+	////cmdBeginInfo.pInheritanceInfo = nullptr;
+	////cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	//VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
+	 
+	auto cmdBuffer_BI = vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	cmdBuffer.begin(cmdBuffer_BI);
 
 	////////////////////////				lambda
 	VkBufferCopy copy;
 	copy.dstOffset = 0;
 	copy.srcOffset = 0;
 	copy.size = bufferSize;
-	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, allocBuffer.vkBuffer, 1, &copy);
+
+	//VkCommandBuffer cmdBuffer_handle = cmdBuffer;
+	vkCmdCopyBuffer(cmdBuffer, stagingBuffer._buffer, allocBuffer.vkBuffer, 1, &copy);
 	////////////////////////				lambda
+	cmdBuffer.end();
 
-	VK_CHECK(vkEndCommandBuffer(cmd));
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pNext = nullptr;
+	//VK_CHECK(vkEndCommandBuffer(cmd));
+	//VkSubmitInfo submitInfo = {};
+	//submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	//submitInfo.pNext = nullptr;
+	//
+	//submitInfo.waitSemaphoreCount = 0;
+	//submitInfo.pWaitSemaphores = nullptr;
+	//submitInfo.pWaitDstStageMask = nullptr;
+	//submitInfo.commandBufferCount = 1;
+	//submitInfo.pCommandBuffers = &cmd;
+	//submitInfo.signalSemaphoreCount = 0;
+	//submitInfo.pSignalSemaphores = nullptr;
+	//vk::SubmitInfo submitInfoHPP = submitInfo;
 
-	submitInfo.waitSemaphoreCount = 0;
-	submitInfo.pWaitSemaphores = nullptr;
-	submitInfo.pWaitDstStageMask = nullptr;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &cmd;
-	submitInfo.signalSemaphoreCount = 0;
-	submitInfo.pSignalSemaphores = nullptr;
-	vk::SubmitInfo submitInfoHPP = submitInfo;
+	auto submitInfo = vk::SubmitInfo{ {},{},{1, &cmdBuffer} };
 
-	context.queue.submit(submitInfoHPP, context.m_UploadContext._uploadFence);
+	//submitInfo.setCommandBufferCount(1);
+	//submitInfo.setPCommandBuffers(&cmdBuffer);
+
+
+
+
+	context.queue.submit(submitInfo, context.m_UploadContext._uploadFence);
 	context.device.waitForFences(context.m_UploadContext._uploadFence, VK_TRUE, 9999999999);
 	context.device.resetFences(context.m_UploadContext._uploadFence);
 	context.device.resetCommandPool(context.m_UploadContext._commandPool);
