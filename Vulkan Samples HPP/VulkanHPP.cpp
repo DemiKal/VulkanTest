@@ -59,23 +59,39 @@ struct Vertex {
 	float col[3];
 };
 
+template<typename T>
+struct Buffer
+{
+	std::vector<T> bufferdata;
+	//AllocatedBuffer allocatedBuffer;
+	VkBuffer vkBuffer;
+	VmaAllocation vmaAllocation;
 
+
+	Buffer(const std::vector<T>& buff) : bufferdata{ buff } {}
+
+};
 struct Mesh
 {
-	AllocatedBuffer m_Buffer;
-	std::vector<Vertex> vertexBuffer;
-	std::vector<uint32_t> indexBuffer;
+	//AllocatedBuffer m_Buffer;
+	//std::vector<Vertex> vertexBuffer;
+	//std::vector<uint32_t> indexBuffer;
+
+	Buffer<Vertex> vertexBuffer;
+	Buffer<uint32_t> indexBuffer;
+
 	Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
+
+
 
 Mesh triMesh = Mesh(
 	{
 	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
 	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
 	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
-	}, { 1, 2, 3 });
+	}, { 0, 1, 2 });
 
- 
 
 void VulkanHPP::Prepare()
 {
@@ -108,9 +124,9 @@ void VulkanHPP::InitAllocator(Context& context)
 }
 
 template <typename T>
-void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>& buffer)
+void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 {
-	const size_t bufferSize = buffer.size() * sizeof(T);
+	const size_t bufferSize = allocBuffer.bufferdata.size() * sizeof(T);
 	vk::BufferCreateInfo stagingBufferInfo({}, bufferSize, vk::BufferUsageFlagBits::eTransferSrc);
 	const VkBufferCreateInfo C_stagingBufferInfo = stagingBufferInfo;
 
@@ -124,7 +140,7 @@ void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>&
 	void* data;
 	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
 
-	memcpy(data, buffer.data(), buffer.size() * sizeof(T));
+	memcpy(data, allocBuffer.bufferdata.data(), allocBuffer.bufferdata.size() * sizeof(T));
 
 	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
 
@@ -143,8 +159,8 @@ void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>&
 	//let the VMA library know that this data should be gpu native	
 	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, &allocBuffer._buffer, &allocBuffer._allocation, nullptr));
-	 
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, &allocBuffer.vkBuffer, &allocBuffer.vmaAllocation, nullptr));
+
 
 	///submit directly with command buffer
 	//VkCommandBuffer cmd;
@@ -193,7 +209,7 @@ void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>&
 	copy.dstOffset = 0;
 	copy.srcOffset = 0;
 	copy.size = bufferSize;
-	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, allocBuffer._buffer, 1, &copy);
+	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, allocBuffer.vkBuffer, 1, &copy);
 	////////////////////////				lambda
 
 	VK_CHECK(vkEndCommandBuffer(cmd));
@@ -252,7 +268,8 @@ void StageBuffer(Context& context, AllocatedBuffer& allocBuffer, std::vector<T>&
 
 void VulkanHPP::InitVertices(Context& context)
 {
-	StageBuffer(context, triMesh.m_Buffer, triMesh.vertexBuffer);
+	StageBuffer(context, triMesh.vertexBuffer);
+	StageBuffer(context, triMesh.indexBuffer);
 }
 
 void VulkanHPP::InitWindow()
@@ -912,8 +929,11 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Bind the graphics pipeline.
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
-	vk::Buffer buffer{ triMesh.m_Buffer._buffer };
+	vk::Buffer buffer{ triMesh.vertexBuffer.vkBuffer };
 	cmd.bindVertexBuffers(0, buffer, { 0 });
+
+	cmd.bindIndexBuffer(triMesh.indexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
+
 
 	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
 	// Set viewport dynamically
@@ -924,7 +944,8 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	cmd.setScissor(0, scissor);
 
 	// Draw three vertices with one instance.
-	cmd.draw(3, 1, 0, 0);
+	//cmd.draw(3, 1, 0, 0);
+	cmd.drawIndexed(triMesh.indexBuffer.bufferdata.size(), 1, 0, 0, 0);
 
 	// Complete render pass.
 	cmd.endRenderPass();
