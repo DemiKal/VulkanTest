@@ -7,49 +7,38 @@ class VulkanHPP
 {
 public:
 	void RunLoop();
-	//void window_size_callback(GLFWwindow* window, int width, int height);
 	void Update(float deltaTime);
-	vk::Result PresentImage(Context& context, uint32_t index);
 	void RenderTriangle(Context& context, uint32_t swapchain_index);
-	vk::Result AcquireNextImage(Context& context, uint32_t* image);
+
 	void Prepare();
-
-	void InitFrameBuffers(Context& context);
-
-	void InitPipeline(Context& context);
-
-	void InitRenderPass(Context& context);
-
-	void InitSwapchain(Context& context);
-
-	void InitDevice(Context& context, const std::vector<const char*>& required_device_extensions);
-
+	void InitLogger();
+	void InitVertices(Context& m_Context);
 	void InitWindow();
+	void InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers);
+	void SelectPhysicalDeviceAndInstance(Context& context);
+	void InitDevice(Context& context, const std::vector<const char*>& required_device_extensions);
+	void InitSwapchain(Context& context);
+	void InitRenderPass(Context& context);
+	void InitPipeline(Context& context);
+	void InitFrameBuffers(Context& context);
+	void InitAllocator(Context& context);
 
 	vk::SurfaceKHR CreateSurface(vk::Instance instance, vk::PhysicalDevice);
-
-	void SelectPhysicalDeviceAndInstance(Context& context);
-
-
- 
-	void InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers);
 	bool ValidateExtensions(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available);
-
 	void TeardownPerFrame(Context& context, PerFrame& per_frame);
-
 	void InitPerFrame(Context& context, PerFrame& per_frame);
-
 	void Resize(const uint32_t, const uint32_t);
-
-	//void InitFramebuffers(Context& context);
-
 	void TearDownFramebuffers(Context& context);
+	vk::Result PresentImage(Context& context, uint32_t index);
+	vk::Result AcquireNextImage(Context& context, uint32_t* image);
 
  
-	void InitLogger();
-
 	Context m_Context;
+	
+	 
+
 	GLFWwindow* m_GLFWwindow;
+	//VmaAllocator m_Allocator;
 	int m_Width = 1024;
 	int m_Height = 768;
 };

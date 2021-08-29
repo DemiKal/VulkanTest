@@ -1,6 +1,8 @@
 #pragma once
 #include "vulkan.hpp"
 
+
+
 struct SwapchainDimensions
 {
 	/// Width of the swapchain.
@@ -32,6 +34,7 @@ struct PerFrame
 
 struct Context
 {
+	//Context(Context& other) = delete;
 	/// The Vulkan instance.
 	vk::Instance instance;
 
@@ -82,4 +85,9 @@ struct Context
 
 	/// A set of per-frame data.
 	std::vector<PerFrame> per_frame;
+
+	struct UploadContext {
+		vk::Fence _uploadFence;
+		vk::CommandPool _commandPool;
+	}m_UploadContext;
 };

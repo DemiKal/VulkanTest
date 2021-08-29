@@ -1,17 +1,21 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VKB_DEBUG 1
 #define VK_USE_PLATFORM_WIN32_KHR 1
-#define GLFW_INCLUDE_VULKAN
-#define GLFW_DLL
 
-
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 #include "VulkanHPP.h"
 
 __pragma(warning(push, 0))
+
+
+#define GLFW_INCLUDE_VULKAN
+#define GLFW_DLL
 #include <GLFW/glfw3.h>
+
+#include <iostream>
 #include <shaderc/shaderc.hpp>
 #include <fmt/format.h>
-//#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 __pragma(warning(pop))
@@ -24,185 +28,50 @@ __pragma(warning(pop))
 #define LOGI(...) spdlog::info(__VA_ARGS__);
 #define LOGW(...) spdlog::warn(__VA_ARGS__);
 #define LOGE(...) spdlog::error("[{}:{}] {}", __FILENAME__, __LINE__, fmt::format(__VA_ARGS__));
-#define LOGD(...) fmt::print(__VA_ARGS__); //spdlog::debug(__VA_ARGS__);
+#define LOGD(...) spdlog::debug(__VA_ARGS__);
 
+#define VK_CHECK(x)                                                 \
+	do                                                              \
+	{                                                               \
+		VkResult err = x;                                           \
+		if (err)                                                    \
+		{                                                           \
+			std::cout << "Detected Vulkan error: " << err << std::endl; \
+			 											\
+			abort();                                                \
+		}                                                           \
+	} while (0)
+
+
+VmaAllocator m_Allocator;
+
+struct AllocatedBuffer {
+	VkBuffer _buffer;
+	VmaAllocation _allocation;
+};
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
+void window_size_callback(GLFWwindow* window, int width, int height);
 
-void VulkanHPP::RunLoop()
+struct Vertex {
+	float pos[3];
+	float col[3];
+};
+
+
+struct Mesh
 {
-	constexpr float deltaTime = 1. / 60.;
-	while (!glfwWindowShouldClose(m_GLFWwindow))
-	{
-		glfwPollEvents();
-		Update(deltaTime);
-	}
-}
+	AllocatedBuffer m_Buffer;
+	std::vector<Vertex> vertexBuffer{
+		   { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
+		   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+		   { { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
+	};
+};
 
+Mesh trimesh;
 
-
-void window_size_callback(GLFWwindow* window, int width, int height)
-{
-	if (auto glfw_window = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
-
-	{
-		//auto& platform = glfw_window->get_platform();
-		glfw_window->Resize(width, height);
-		glfw_window->m_Width = width;
-		glfw_window->m_Height = height;
-		//glfw_window->resize(width, height);
-	}
-}
-
-void VulkanHPP::Update(float deltaTime)
-{
-	uint32_t index;
-
-	auto res = AcquireNextImage(m_Context, &index);
-
-	// Handle outdated error in acquire.
-	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
-	{
-		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
-		res = AcquireNextImage(m_Context, &index);
-	}
-
-	if (res != vk::Result::eSuccess)
-	{
-		m_Context.queue.waitIdle();
-		return;
-	}
-
-	RenderTriangle(m_Context, index);
-	res = PresentImage(m_Context, index);
-
-	// Handle Outdated error in present.
-	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
-	{
-		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
-	}
-	else if (res != vk::Result::eSuccess)
-	{
-		LOGE("Failed to present swapchain image.");
-	}
-}
-
-vk::Result VulkanHPP::PresentImage(Context& context, uint32_t index)
-{
-	vk::PresentInfoKHR present(context.per_frame[index].swapchain_release_semaphore, context.swapchain, index);
-	// Present swapchain image
-	return context.queue.presentKHR(present);
-}
-
-void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
-{
-	// Render to this framebuffer.
-	vk::Framebuffer framebuffer = context.swapchain_framebuffers[swapchain_index];
-
-	// Allocate or re-use a primary command buffer.
-	vk::CommandBuffer cmd = context.per_frame[swapchain_index].primary_command_buffer;
-
-	// We will only submit this once before it's recycled.
-	vk::CommandBufferBeginInfo begin_info(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-	// Begin command recording
-	cmd.begin(begin_info);
-
-	// Set clear color values.
-	vk::ClearValue clear_value;
-	clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
-
-	// Begin the render pass.
-	vk::RenderPassBeginInfo rp_begin(context.render_pass, framebuffer, { {0, 0}, {context.swapchain_dimensions.width, context.swapchain_dimensions.height} },
-		clear_value);
-	// We will add draw commands in the same command buffer.
-	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
-
-	// Bind the graphics pipeline.
-	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
-
-	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
-	// Set viewport dynamically
-	cmd.setViewport(0, vp);
-
-	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
-	// Set scissor dynamically
-	cmd.setScissor(0, scissor);
-
-	// Draw three vertices with one instance.
-	cmd.draw(3, 1, 0, 0);
-
-	// Complete render pass.
-	cmd.endRenderPass();
-
-	// Complete the command buffer.
-	cmd.end();
-
-	// Submit it to the queue with a release semaphore.
-	if (!context.per_frame[swapchain_index].swapchain_release_semaphore)
-	{
-		context.per_frame[swapchain_index].swapchain_release_semaphore = context.device.createSemaphore({});
-	}
-
-	vk::PipelineStageFlags wait_stage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-	vk::SubmitInfo info(context.per_frame[swapchain_index].swapchain_acquire_semaphore, wait_stage, cmd,
-		context.per_frame[swapchain_index].swapchain_release_semaphore);
-	// Submit command buffer to graphics queue
-	context.queue.submit(info, context.per_frame[swapchain_index].queue_submit_fence);
-}
-vk::Result VulkanHPP::AcquireNextImage(Context& context, uint32_t* image)
-{
-	vk::Semaphore acquire_semaphore;
-	if (context.recycled_semaphores.empty())
-	{
-		acquire_semaphore = context.device.createSemaphore({});
-	}
-	else
-	{
-		acquire_semaphore = context.recycled_semaphores.back();
-		context.recycled_semaphores.pop_back();
-	}
-
-	vk::Result res;
-	std::tie(res, *image) = context.device.acquireNextImageKHR(context.swapchain, UINT64_MAX, acquire_semaphore);
-
-	if (res != vk::Result::eSuccess)
-	{
-		context.recycled_semaphores.push_back(acquire_semaphore);
-		return res;
-	}
-
-	// If we have outstanding fences for this swapchain image, wait for them to complete first.
-	// After begin frame returns, it is safe to reuse or delete resources which
-	// were used previously.
-	//
-	// We wait for fences which completes N frames earlier, so we do not stall,
-	// waiting for all GPU work to complete before this returns.
-	// Normally, this doesn't really block at all,
-	// since we're waiting for old frames to have been completed, but just in case.
-	if (context.per_frame[*image].queue_submit_fence)
-	{
-		context.device.waitForFences(context.per_frame[*image].queue_submit_fence, true, UINT64_MAX);
-		context.device.resetFences(context.per_frame[*image].queue_submit_fence);
-	}
-
-	if (context.per_frame[*image].primary_command_pool)
-	{
-		context.device.resetCommandPool(context.per_frame[*image].primary_command_pool);
-	}
-
-	// Recycle the old semaphore back into the semaphore manager.
-	vk::Semaphore old_semaphore = context.per_frame[*image].swapchain_acquire_semaphore;
-
-	if (old_semaphore)
-	{
-		context.recycled_semaphores.push_back(old_semaphore);
-	}
-
-	context.per_frame[*image].swapchain_acquire_semaphore = acquire_semaphore;
-
-	return vk::Result::eSuccess;
-}
 void VulkanHPP::Prepare()
 {
 	InitLogger();
@@ -218,206 +87,362 @@ void VulkanHPP::Prepare()
 	InitRenderPass(m_Context);
 	InitPipeline(m_Context);
 	InitFrameBuffers(m_Context);
+	InitAllocator(m_Context);
+
+
+	InitVertices(m_Context);
 }
 
-void VulkanHPP::InitFrameBuffers(Context& context)
+void VulkanHPP::InitAllocator(Context& context)
 {
-	vk::Device device = context.device;
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.physicalDevice = context.gpu;
+	allocatorInfo.device = context.device;
+	allocatorInfo.instance = context.instance;
+	vmaCreateAllocator(&allocatorInfo, &m_Allocator);
+}
 
-	// Create framebuffer for each swapchain image view
-	for (auto& image_view : context.swapchain_image_views)
+void VulkanHPP::InitVertices(Context& context)
+{
+	const size_t bufferSize = trimesh.vertexBuffer.size() * sizeof(Vertex);
+	vk::BufferCreateInfo stagingBufferInfo({}, bufferSize, vk::BufferUsageFlagBits::eTransferSrc);
+	const VkBufferCreateInfo C_stagingBufferInfo = stagingBufferInfo;
+
+	VmaAllocationCreateInfo vmaallocInfo = {};
+	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+	AllocatedBuffer stagingBuffer;
+
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &C_stagingBufferInfo, &vmaallocInfo,
+		&stagingBuffer._buffer,
+		&stagingBuffer._allocation,
+		nullptr));
+
+
+
+	void* data;
+	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
+	//if (err2) LOGE("VMA: error mapping memory!");
+
+	memcpy(data, trimesh.vertexBuffer.data(), trimesh.vertexBuffer.size() * sizeof(Vertex));
+
+	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
+
+	////////////////////////
+	////  COPY 1 DONE!  ////
+	////////////////////////
+
+	VkBufferCreateInfo vertexBufferInfo = {};
+	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vertexBufferInfo.pNext = nullptr;
+	//this is the total size, in bytes, of the buffer we are allocating
+	vertexBufferInfo.size = bufferSize;
+	//this buffer is going to be used as a Vertex Buffer
+	vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	//let the VMA library know that this data should be gpu native	
+	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo,
+		&trimesh.m_Buffer._buffer,
+		&trimesh.m_Buffer._allocation,
+		nullptr));
+
+
+	///submit directly with command buffer
+	//VkCommandBuffer cmd;
+
+	//allocate the default command buffer that we will use for rendering
+	//VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
+	//vk::CommandBufferAllocateInfo cmdBuffAllocateInfo;
+	////auto& cmdPool = context.per_frame[0].primary_command_pool;
+	//cmdBuffAllocateInfo.setCommandBufferCount(1);
+	//cmdBuffAllocateInfo.setCommandPool(context.m_UploadContext._commandPool);
+	//cmdBuffAllocateInfo.setLevel(vk::CommandBufferLevel::ePrimary);
+
+
+
+
+
+	//const VkCommandBufferAllocateInfo cmdAllocInfo = cmdBuffAllocateInfo;
+	//context.device.createcommandbuff
+	//VK_CHECK(vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &cmdAllocInfo));
+	//
+	////begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
+	////VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	//auto cmdBufferBeginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+	////cmdBufferBeginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	//VkCommandBufferBeginInfo cmdBeginInfo = cmdBufferBeginInfo;
+	//VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+	VkCommandBuffer cmd;
+
+	//allocate the default command buffer that we will use for rendering
+	VkCommandBufferAllocateInfo cmdAllocInfo; //= vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
+	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdAllocInfo.commandPool = context.m_UploadContext._commandPool;
+	cmdAllocInfo.commandBufferCount = 1;
+	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdAllocInfo.pNext = nullptr;
+	VK_CHECK(vkAllocateCommandBuffers(context.device, &cmdAllocInfo, &cmd));
+
+	//begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
+	VkCommandBufferBeginInfo cmdBeginInfo;
+	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBeginInfo.pNext = nullptr;
+	cmdBeginInfo.pInheritanceInfo = nullptr;
+	cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+
+	////////////////////////				lambda
+	VkBufferCopy copy;
+	copy.dstOffset = 0;
+	copy.srcOffset = 0;
+	copy.size = bufferSize;
+	vkCmdCopyBuffer(cmd, stagingBuffer._buffer, trimesh.m_Buffer._buffer, 1, &copy);
+	////////////////////////				lambda
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pNext = nullptr;
+
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pWaitSemaphores = nullptr;
+	submitInfo.pWaitDstStageMask = nullptr;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmd;
+	submitInfo.signalSemaphoreCount = 0;
+	submitInfo.pSignalSemaphores = nullptr;
+	vk::SubmitInfo submitInfoHPP = submitInfo;
+	//VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext._uploadFence));
+	context.queue.submit(submitInfoHPP, context.m_UploadContext._uploadFence);
+	context.device.waitForFences(context.m_UploadContext._uploadFence, VK_TRUE, 9999999999);
+	//context.device.resetCommandPool({ 1, &context.m_UploadContext._commandPool }, vk::CommandBufferResetFlagBits::eReleaseResources);
+	context.device.resetFences( context.m_UploadContext._uploadFence  );
+	context.device.resetCommandPool(context.m_UploadContext._commandPool);
+
+	//VkSubmitInfo submit = vkinit::submit_info(&cmd);
+	//vk::SubmitInfo submitInfo;
+	//submitInfo.setCommandBufferCount(1);
+	//submitInfo.setPCommandBuffers(&cmd);
+	//submitInfo.setCommandBufferCount(1)
+	//context.queue.submit(submit, )
+	//VkSubmitInfo info = {};
+	//info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	//info.pNext = nullptr;
+	//
+	//info.waitSemaphoreCount = 0;
+	//info.pWaitSemaphores = nullptr;
+	//info.pWaitDstStageMask = nullptr;
+	//info.commandBufferCount = 1;
+	//info.pCommandBuffers = &cmd;
+	//info.signalSemaphoreCount = 0;
+	//info.pSignalSemaphores = nullptr;
+	//submit command buffer to the queue and execute it.
+	// _renderFence will now block until the graphic commands finish execution
+	//VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, context._uploadFence));
+
+	//auto cmdBuffer = vk::CommandBuffer{ cmd };
+	//auto submitInfo = vk::SubmitInfo{};
+	//submitInfo.setCommandBuffers({ 1, &cmdBuffer });
+	//auto& fence = context.m_UploadContext._uploadFence;
+	//
+	//context.queue.submit(submitInfo, fence);
+	//context.device.waitForFences(fence, VK_TRUE, 9999999999);
+	//
+	//context.device.resetFences(fence);
+	//context.device.resetCommandPool(cmdPool);
+
+	vmaDestroyBuffer(m_Allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+}
+
+void VulkanHPP::InitWindow()
+{
+	vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
+		VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
+
+
+	glfwInit();
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
+	glfwSetWindowUserPointer(m_GLFWwindow, this);
+	glfwSetWindowSizeCallback(m_GLFWwindow, window_size_callback);
+}
+
+
+void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers)
+{
+	fmt::print("Initializing Vulkan");
+
+	//alternative
+	// vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
+	// 	VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
+	// auto width = 1024;
+	// auto height = 768;
+	//
+	// glfwInit();
+	// glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	// auto window = glfwCreateWindow(width, height, "Vulkan 101", nullptr, nullptr);
+	//
+	// auto glfwExtensionCount = 0u;
+	// auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+	// std::vector<const char*> glfwExtensionsVector(glfwExtensions, glfwExtensions + glfwExtensionCount);
+	// glfwExtensionsVector.push_back("VK_EXT_debug_utils");
+	// auto layers = std::vector<const char*>{ "VK_LAYER_KHRONOS_validation" };
+	//
+	//
+	// auto instance = vk::createInstanceUnique(
+	// 	vk::InstanceCreateInfo{ {}, &appInfo, static_cast<uint32_t>(layers.size()), layers.data(),
+	// 		static_cast<uint32_t>(glfwExtensionsVector.size()), glfwExtensionsVector.data() });
+	// auto dldi = vk::DispatchLoaderDynamic(*instance, vkGetInstanceProcAddr);
+
+	static vk::DynamicLoader  dl;
+	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
+	std::vector<vk::ExtensionProperties> instance_extensions = vk::enumerateInstanceExtensionProperties();
+	std::vector<const char*> active_instance_extensions(required_instance_extensions);
+
+#pragma region platform
+#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
+	active_instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+#endif
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+	active_instance_extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_WIN32_KHR)
+	active_instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_MACOS_MVK)
+	active_instance_extensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+	active_instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+	active_instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	active_instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
+	active_instance_extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
+#else
+#	pragma error Platform not supported
+#endif
+#pragma endregion 
+
+	if (!ValidateExtensions(active_instance_extensions, instance_extensions))
 	{
-		// Build the framebuffer.
-		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+		throw std::runtime_error("Required instance extensions are missing.");
+	}
 
-		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
+	std::vector<vk::LayerProperties> supported_validation_layers = vk::enumerateInstanceLayerProperties();
+
+	std::vector<const char*> requested_validation_layers(required_validation_layers);
+
+#ifdef VKB_VALIDATION_LAYERS
+	// Determine the optimal validation layers to enable that are necessary for useful debugging
+	std::vector<const char*> optimal_validation_layers = get_optimal_validation_layers(supported_validation_layers);
+	requested_validation_layers.insert(requested_validation_layers.end(), optimal_validation_layers.begin(), optimal_validation_layers.end());
+#endif
+
+	//todo use spdlog!
+	if (ValidateLayers(requested_validation_layers, supported_validation_layers))
+	{
+		//fmt::print("Enabled Validation Layers:");
+		for (const auto& layer : requested_validation_layers)
+		{
+			//fmt::print("	\t{}", layer);
+		}
+	}
+	else
+	{
+		throw std::runtime_error("Required validation layers are missing.");
+	}
+	vk::ApplicationInfo app("HPP Vulkan 2", {}, "Ported from Vulkan Samples", VK_MAKE_VERSION(1, 0, 0));
+
+	vk::InstanceCreateInfo instance_info({}, &app, requested_validation_layers, active_instance_extensions);
+
+#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
+	vk::DebugReportCallbackCreateInfoEXT debug_report_create_info(vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eWarning, debug_callback);
+
+	instance_info.pNext = &debug_report_create_info;
+#endif
+
+	// Create the Vulkan instance
+	context.instance = vk::createInstance(instance_info);
+
+	// initialize function pointers for instance
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(context.instance);
+
+#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
+	context.debug_callback = context.instance.createDebugReportCallbackEXT(debug_report_create_info);
+#endif
+}
+
+void VulkanHPP::SelectPhysicalDeviceAndInstance(Context& context)
+{
+	std::vector<vk::PhysicalDevice> gpus = context.instance.enumeratePhysicalDevices();
+
+	for (size_t i = 0; i < gpus.size() && (context.graphics_queue_index < 0); i++)
+	{
+		context.gpu = gpus[i];
+
+		std::vector<vk::QueueFamilyProperties> queue_family_properties = context.gpu.getQueueFamilyProperties();
+
+		if (queue_family_properties.empty())
+		{
+			throw std::runtime_error("No queue family found.");
+		}
+
+		if (context.surface)
+		{
+			context.instance.destroySurfaceKHR(context.surface);
+		}
+		context.surface = CreateSurface(context.instance, context.gpu);
+
+		for (uint32_t j = 0; j < static_cast<uint32_t>(queue_family_properties.size()); j++)
+		{
+			vk::Bool32 supports_present = context.gpu.getSurfaceSupportKHR(j, context.surface);
+
+			// Find a queue family which supports graphics and presentation.
+			if ((queue_family_properties[j].queueFlags & vk::QueueFlagBits::eGraphics) && supports_present)
+			{
+				context.graphics_queue_index = j;
+				break;
+			}
+		}
+	}
+
+	if (context.graphics_queue_index < 0)
+	{
+		LOGE("Did not find suitable queue which supports graphics and presentation.");
 	}
 }
 
-
-void VulkanHPP::InitPipeline(Context& context)
+void VulkanHPP::InitDevice(Context& context, const std::vector<const char*>& required_device_extensions)
 {
-	// Create a blank pipeline layout.
-	// We are not binding any resources to the pipeline in this first sample.
-	context.pipeline_layout = context.device.createPipelineLayout({});
+	LOGI("Initializing vulkan device.");
+	std::vector<vk::ExtensionProperties> device_extensions = context.gpu.enumerateDeviceExtensionProperties();
 
-	vk::PipelineVertexInputStateCreateInfo vertex_input;
+	if (!ValidateExtensions(required_device_extensions, device_extensions))
+	{
+		throw std::runtime_error("Required device extensions are missing, will try without.");
+	}
 
-	// Specify we will use triangle lists to draw geometry.
-	vk::PipelineInputAssemblyStateCreateInfo input_assembly({}, vk::PrimitiveTopology::eTriangleList);
+	float queue_priority = 1.0f;
 
-	// Specify rasterization state.
-	vk::PipelineRasterizationStateCreateInfo raster;
-	raster.cullMode = vk::CullModeFlagBits::eBack;
-	raster.frontFace = vk::FrontFace::eClockwise;
-	raster.lineWidth = 1.0f;
+	// Create one queue
+	vk::DeviceQueueCreateInfo queue_info({}, context.graphics_queue_index, 1, &queue_priority);
 
-	// Our attachment will write to all color channels, but no blending is enabled.
-	vk::PipelineColorBlendAttachmentState blend_attachment;
-	blend_attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+	vk::DeviceCreateInfo device_info({}, queue_info, {}, required_device_extensions);
 
-	vk::PipelineColorBlendStateCreateInfo blend({}, {}, {}, blend_attachment);
+	context.device = context.gpu.createDevice(device_info);
+	// initialize function pointers for device
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
 
-	// We will have one viewport and scissor box.
-	vk::PipelineViewportStateCreateInfo viewport;
-	viewport.viewportCount = 1;
-	viewport.scissorCount = 1;
+	context.queue = context.device.getQueue(context.graphics_queue_index, 0);
 
-	// Disable all depth testing.
-	vk::PipelineDepthStencilStateCreateInfo depth_stencil;
-
-	// No multisampling.
-	vk::PipelineMultisampleStateCreateInfo multisample({}, vk::SampleCountFlagBits::e1);
-
-	// Specify that these states will be dynamic, i.e. not part of pipeline state object.
-	std::array<vk::DynamicState, 2> dynamics{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
-
-	// Load our SPIR-V shaders.
-	//std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
-	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, loadShaderModule(context, "triangle.vert"), "main"),
-	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, loadShaderModule(context, "triangle.frag"), "main") };
-	const std::string kShaderSource = R"vertexShader(#version 320 es
-precision mediump float;
-
-layout(location = 0) out vec3 out_color;
-
-vec2 triangle_positions[3] = vec2[](
-    vec2(0.5, -0.5),
-    vec2(0.5, 0.5),
-    vec2(-0.5, 0.5)
-);
-
-vec3 triangle_colors[3] = vec3[](
-    vec3(1.0, 0.0, 0.0),
-    vec3(0.0, 1.0, 0.0),
-    vec3(0.0, 0.0, 1.0)
-);
-
-void main()
-{
-    gl_Position = vec4(triangle_positions[gl_VertexIndex], 0.0, 1.0);
-
-    out_color = triangle_colors[gl_VertexIndex];
 }
-)vertexShader";
-
-	const std::string fragmentShader = R"fragmentShader(#version 320 es
-precision mediump float;
-
-layout(location = 0) in vec3 in_color;
-
-layout(location = 0) out vec4 out_color;
-
-void main()
-{
-	out_color = vec4(in_color, 1.0);
-}
-
-)fragmentShader";
-
-	shaderc::Compiler compiler;
-	shaderc::CompileOptions options;
-	options.SetOptimizationLevel(shaderc_optimization_level_performance);
-
-	shaderc::SpvCompilationResult vertShaderResult =
-		compiler.CompileGlslToSpv(kShaderSource, shaderc_glsl_vertex_shader, "vertex shader", options);
-
-	auto vertStatus = vertShaderResult.GetCompilationStatus();
-	if (vertStatus != shaderc_compilation_status_success) { fmt::print(vertShaderResult.GetErrorMessage()); }
-
-	auto vertShaderCode = std::vector<uint32_t>{ vertShaderResult.cbegin(), vertShaderResult.cend() };
-	auto vertSize = std::distance(vertShaderCode.begin(), vertShaderCode.end());
-	auto vertShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, vertSize * sizeof(uint32_t), vertShaderCode.data() };
-	auto vertexShaderModule = context.device.createShaderModule(vertShaderCreateInfo);
-
-	shaderc::SpvCompilationResult fragShaderModule = compiler.CompileGlslToSpv(fragmentShader, shaderc_glsl_fragment_shader, "fragment shader", options);
-	if (fragShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) 	  fmt::print(fragShaderModule.GetErrorMessage());
-
-	auto fragShaderCode = std::vector<uint32_t>{ fragShaderModule.cbegin(), fragShaderModule.cend() };
-	auto fragSize = std::distance(fragShaderCode.begin(), fragShaderCode.end());
-	auto fragShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, fragSize * sizeof(uint32_t), fragShaderCode.data() };
-	auto fragmentShaderModule = context.device.createShaderModule(fragShaderCreateInfo);
-
-
-	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
-	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertexShaderModule, "main"),
-	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragmentShaderModule, "main") };
-
-
-	vk::GraphicsPipelineCreateInfo pipe({}, shader_stages);
-	pipe.pVertexInputState = &vertex_input;
-	pipe.pInputAssemblyState = &input_assembly;
-	pipe.pRasterizationState = &raster;
-	pipe.pColorBlendState = &blend;
-	pipe.pMultisampleState = &multisample;
-	pipe.pViewportState = &viewport;
-	pipe.pDepthStencilState = &depth_stencil;
-	pipe.pDynamicState = &dynamic;
-
-	// We need to specify the pipeline layout and the render pass description up front as well.
-	pipe.renderPass = context.render_pass;
-	pipe.layout = context.pipeline_layout;
-
-	context.pipeline = context.device.createGraphicsPipeline(nullptr, pipe).value;
-
-	// Pipeline is baked, we can delete the shader modules now.
-	context.device.destroyShaderModule(shader_stages[0].module);
-	context.device.destroyShaderModule(shader_stages[1].module);
-}
-void VulkanHPP::InitRenderPass(Context& context)
-{
-	vk::AttachmentDescription attachment;
-	// Backbuffer format.
-	attachment.format = context.swapchain_dimensions.format;
-	// Not multisampled.
-	attachment.samples = vk::SampleCountFlagBits::e1;
-	// When starting the frame, we want tiles to be cleared.
-	attachment.loadOp = vk::AttachmentLoadOp::eClear;
-	// When ending the frame, we want tiles to be written out.
-	attachment.storeOp = vk::AttachmentStoreOp::eStore;
-	// Don't care about stencil since we're not using it.
-	attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-
-	// The image layout will be undefined when the render pass begins.
-	attachment.initialLayout = vk::ImageLayout::eUndefined;
-	// After the render pass is complete, we will transition to ePresentSrcKHR layout.
-	attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
-
-	// We have one subpass. This subpass has one color attachment.
-	// While executing this subpass, the attachment will be in attachment optimal layout.
-	vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-
-	// We will end up with two transitions.
-	// The first one happens right before we start subpass #0, where
-	// eUndefined is transitioned into eColorAttachmentOptimal.
-	// The final layout in the render pass attachment states ePresentSrcKHR, so we
-	// will get a final transition from eColorAttachmentOptimal to ePresetSrcKHR.
-	vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_ref);
-
-	// Create a dependency to external events.
-	// We need to wait for the WSI semaphore to signal.
-	// Only pipeline stages which depend on eColorAttachmentOutput will
-	// actually wait for the semaphore, so we must also wait for that pipeline stage.
-	vk::SubpassDependency dependency;
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-
-	// Since we changed the image layout, we need to make the memory visible to
-	// color attachment to modify.
-	dependency.srcAccessMask = {};
-	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
-
-	// Finally, create the renderpass.
-	vk::RenderPassCreateInfo rp_info({}, attachment, subpass, dependency);
-
-	context.render_pass = context.device.createRenderPass(rp_info);
-}
-
 
 void VulkanHPP::InitSwapchain(Context& context)
 {
@@ -587,47 +612,409 @@ void VulkanHPP::InitSwapchain(Context& context)
 		context.swapchain_image_views.push_back(context.device.createImageView(view_info));
 	}
 
+	//upload context
+	vk::CommandPoolCreateInfo cmdPoolInfoUpload(vk::CommandPoolCreateFlagBits::eTransient, context.graphics_queue_index);
+	context.m_UploadContext._commandPool = context.device.createCommandPool(cmdPoolInfoUpload);
+
+	vk::FenceCreateInfo uploadFenceCreateInfo;
+	context.m_UploadContext._uploadFence = context.device.createFence(uploadFenceCreateInfo);
+
 
 }
-void VulkanHPP::InitDevice(Context& context, const std::vector<const char*>& required_device_extensions)
-{
-	LOGI("Initializing vulkan device.");
-	std::vector<vk::ExtensionProperties> device_extensions = context.gpu.enumerateDeviceExtensionProperties();
 
-	if (!ValidateExtensions(required_device_extensions, device_extensions))
+void VulkanHPP::InitRenderPass(Context& context)
+{
+	vk::AttachmentDescription attachment;
+	// Backbuffer format.
+	attachment.format = context.swapchain_dimensions.format;
+	// Not multisampled.
+	attachment.samples = vk::SampleCountFlagBits::e1;
+	// When starting the frame, we want tiles to be cleared.
+	attachment.loadOp = vk::AttachmentLoadOp::eClear;
+	// When ending the frame, we want tiles to be written out.
+	attachment.storeOp = vk::AttachmentStoreOp::eStore;
+	// Don't care about stencil since we're not using it.
+	attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+
+	// The image layout will be undefined when the render pass begins.
+	attachment.initialLayout = vk::ImageLayout::eUndefined;
+	// After the render pass is complete, we will transition to ePresentSrcKHR layout.
+	attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+
+	// We have one subpass. This subpass has one color attachment.
+	// While executing this subpass, the attachment will be in attachment optimal layout.
+	vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+
+	// We will end up with two transitions.
+	// The first one happens right before we start subpass #0, where
+	// eUndefined is transitioned into eColorAttachmentOptimal.
+	// The final layout in the render pass attachment states ePresentSrcKHR, so we
+	// will get a final transition from eColorAttachmentOptimal to ePresetSrcKHR.
+	vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_ref);
+
+	// Create a dependency to external events.
+	// We need to wait for the WSI semaphore to signal.
+	// Only pipeline stages which depend on eColorAttachmentOutput will
+	// actually wait for the semaphore, so we must also wait for that pipeline stage.
+	vk::SubpassDependency dependency;
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+	// Since we changed the image layout, we need to make the memory visible to
+	// color attachment to modify.
+	dependency.srcAccessMask = {};
+	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+
+	// Finally, create the renderpass.
+	vk::RenderPassCreateInfo rp_info({}, attachment, subpass, dependency);
+
+	context.render_pass = context.device.createRenderPass(rp_info);
+}
+
+void VulkanHPP::InitPipeline(Context& context)
+{
+	// Create a blank pipeline layout.
+	// We are not binding any resources to the pipeline in this first sample.
+	context.pipeline_layout = context.device.createPipelineLayout({});
+
+
+	vk::PipelineVertexInputStateCreateInfo vertexInput;
+
+	std::vector<vk::VertexInputBindingDescription> bindingDescriptions = {
+			{0, sizeof(Vertex), vk::VertexInputRate::eVertex},
+	};
+	vertexInput.setVertexBindingDescriptions({ (uint32_t)bindingDescriptions.size(), bindingDescriptions.data() });
+
+	std::vector<vk::VertexInputAttributeDescription>  attributeDescriptions = {
+		{ 0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos) },
+		{ 1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, col) },
+	};
+	vertexInput.setVertexAttributeDescriptions({ (uint32_t)attributeDescriptions.size(), attributeDescriptions.data() });
+
+
+	// Specify we will use triangle lists to draw geometry.
+	vk::PipelineInputAssemblyStateCreateInfo input_assembly({}, vk::PrimitiveTopology::eTriangleList);
+
+	// Specify rasterization state.
+	vk::PipelineRasterizationStateCreateInfo raster;
+	raster.cullMode = vk::CullModeFlagBits::eNone;
+	raster.frontFace = vk::FrontFace::eClockwise;
+	raster.lineWidth = 1.0f;
+
+	// Our attachment will write to all color channels, but no blending is enabled.
+	vk::PipelineColorBlendAttachmentState blend_attachment;
+	blend_attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+
+	vk::PipelineColorBlendStateCreateInfo blend({}, {}, {}, blend_attachment);
+
+	// We will have one viewport and scissor box.
+	vk::PipelineViewportStateCreateInfo viewport;
+	viewport.viewportCount = 1;
+	viewport.scissorCount = 1;
+
+	// Disable all depth testing.
+	vk::PipelineDepthStencilStateCreateInfo depth_stencil;
+
+	// No multisampling.
+	vk::PipelineMultisampleStateCreateInfo multisample({}, vk::SampleCountFlagBits::e1);
+
+	// Specify that these states will be dynamic, i.e. not part of pipeline state object.
+	std::array<vk::DynamicState, 2> dynamics{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
+
+	// Load our SPIR-V shaders.
+	//std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, loadShaderModule(context, "triangle.vert"), "main"),
+	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, loadShaderModule(context, "triangle.frag"), "main") };
+	const std::string kShaderSource = R"vertexShader(#version 320 es
+precision mediump float;
+
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec3 col;
+
+layout(location = 0) out vec3 out_color;
+
+ 
+void main()
+{
+    gl_Position = vec4(pos.x, pos.y, pos.z, 1.0f);
+
+    out_color = col;
+}
+)vertexShader";
+
+	const std::string fragmentShader = R"fragmentShader(#version 320 es
+precision mediump float;
+
+layout(location = 0) in vec3 in_color;
+
+layout(location = 0) out vec4 out_color;
+
+void main()
+{
+	out_color = vec4(in_color, 1.0);
+}
+
+)fragmentShader";
+
+	shaderc::Compiler compiler;
+	shaderc::CompileOptions options;
+	options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+	shaderc::SpvCompilationResult vertShaderResult =
+		compiler.CompileGlslToSpv(kShaderSource, shaderc_glsl_vertex_shader, "vertex shader", options);
+
+	auto vertStatus = vertShaderResult.GetCompilationStatus();
+	if (vertStatus != shaderc_compilation_status_success) { fmt::print(vertShaderResult.GetErrorMessage()); }
+
+	auto vertShaderCode = std::vector<uint32_t>{ vertShaderResult.cbegin(), vertShaderResult.cend() };
+	auto vertSize = std::distance(vertShaderCode.begin(), vertShaderCode.end());
+	auto vertShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, vertSize * sizeof(uint32_t), vertShaderCode.data() };
+	auto vertexShaderModule = context.device.createShaderModule(vertShaderCreateInfo);
+
+	shaderc::SpvCompilationResult fragShaderModule = compiler.CompileGlslToSpv(fragmentShader, shaderc_glsl_fragment_shader, "fragment shader", options);
+	if (fragShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) 	  fmt::print(fragShaderModule.GetErrorMessage());
+
+	auto fragShaderCode = std::vector<uint32_t>{ fragShaderModule.cbegin(), fragShaderModule.cend() };
+	auto fragSize = std::distance(fragShaderCode.begin(), fragShaderCode.end());
+	auto fragShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, fragSize * sizeof(uint32_t), fragShaderCode.data() };
+	auto fragmentShaderModule = context.device.createShaderModule(fragShaderCreateInfo);
+
+
+	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertexShaderModule, "main"),
+	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragmentShaderModule, "main") };
+
+
+	vk::GraphicsPipelineCreateInfo pipe({}, shader_stages);
+	pipe.pVertexInputState = &vertexInput;
+	pipe.pInputAssemblyState = &input_assembly;
+	pipe.pRasterizationState = &raster;
+	pipe.pColorBlendState = &blend;
+	pipe.pMultisampleState = &multisample;
+	pipe.pViewportState = &viewport;
+	pipe.pDepthStencilState = &depth_stencil;
+	pipe.pDynamicState = &dynamic;
+
+	// We need to specify the pipeline layout and the render pass description up front as well.
+	pipe.renderPass = context.render_pass;
+	pipe.layout = context.pipeline_layout;
+
+	context.pipeline = context.device.createGraphicsPipeline(nullptr, pipe).value;
+
+	// Pipeline is baked, we can delete the shader modules now.
+	context.device.destroyShaderModule(shader_stages[0].module);
+	context.device.destroyShaderModule(shader_stages[1].module);
+}
+
+void VulkanHPP::InitFrameBuffers(Context& context)
+{
+	vk::Device device = context.device;
+
+	// Create framebuffer for each swapchain image view
+	for (auto& image_view : context.swapchain_image_views)
 	{
-		throw std::runtime_error("Required device extensions are missing, will try without.");
+		// Build the framebuffer.
+		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+
+		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
+	}
+}
+
+
+void VulkanHPP::RunLoop()
+{
+	constexpr float deltaTime = 1. / 60.;
+	while (!glfwWindowShouldClose(m_GLFWwindow))
+	{
+		glfwPollEvents();
+		Update(deltaTime);
+	}
+}
+
+
+
+void window_size_callback(GLFWwindow* window, int width, int height)
+{
+	if (auto glfw_window = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
+
+	{
+		//auto& platform = glfw_window->get_platform();
+		glfw_window->Resize(width, height);
+		glfw_window->m_Width = width;
+		glfw_window->m_Height = height;
+		//glfw_window->resize(width, height);
+	}
+}
+
+void VulkanHPP::Update(float deltaTime)
+{
+	uint32_t index;
+
+	auto res = AcquireNextImage(m_Context, &index);
+
+	// Handle outdated error in acquire.
+	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
+	{
+		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
+		res = AcquireNextImage(m_Context, &index);
 	}
 
-	float queue_priority = 1.0f;
+	if (res != vk::Result::eSuccess)
+	{
+		m_Context.queue.waitIdle();
+		return;
+	}
 
-	// Create one queue
-	vk::DeviceQueueCreateInfo queue_info({}, context.graphics_queue_index, 1, &queue_priority);
+	RenderTriangle(m_Context, index);
+	res = PresentImage(m_Context, index);
 
-	vk::DeviceCreateInfo device_info({}, queue_info, {}, required_device_extensions);
-
-	context.device = context.gpu.createDevice(device_info);
-	// initialize function pointers for device
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(context.device);
-
-	context.queue = context.device.getQueue(context.graphics_queue_index, 0);
-
+	// Handle Outdated error in present.
+	if (res == vk::Result::eSuboptimalKHR || res == vk::Result::eErrorOutOfDateKHR)
+	{
+		Resize(m_Context.swapchain_dimensions.width, m_Context.swapchain_dimensions.height);
+	}
+	else if (res != vk::Result::eSuccess)
+	{
+		LOGE("Failed to present swapchain image.");
+	}
 }
 
-
-void VulkanHPP::InitWindow()
+vk::Result VulkanHPP::PresentImage(Context& context, uint32_t index)
 {
-	vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
-		VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
-
-
-	glfwInit();
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
-	glfwSetWindowUserPointer(m_GLFWwindow, this);
-	glfwSetWindowSizeCallback(m_GLFWwindow, window_size_callback);
+	vk::PresentInfoKHR present(context.per_frame[index].swapchain_release_semaphore, context.swapchain, index);
+	// Present swapchain image
+	return context.queue.presentKHR(present);
 }
+
+void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
+{
+	// Render to this framebuffer.
+	vk::Framebuffer framebuffer = context.swapchain_framebuffers[swapchain_index];
+
+	// Allocate or re-use a primary command buffer.
+	vk::CommandBuffer cmd = context.per_frame[swapchain_index].primary_command_buffer;
+
+	// We will only submit this once before it's recycled.
+	vk::CommandBufferBeginInfo begin_info(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+	// Begin command recording
+	cmd.begin(begin_info);
+
+	// Set clear color values.
+	vk::ClearValue clear_value;
+	clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
+
+	// Begin the render pass.
+	vk::RenderPassBeginInfo rp_begin(context.render_pass, framebuffer, { {0, 0}, {context.swapchain_dimensions.width, context.swapchain_dimensions.height} },
+		clear_value);
+	// We will add draw commands in the same command buffer.
+	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
+
+	// Bind the graphics pipeline.
+	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
+	vk::Buffer buffer{ trimesh.m_Buffer._buffer };
+	cmd.bindVertexBuffers(0, buffer, { 0 });
+
+	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
+	// Set viewport dynamically
+	cmd.setViewport(0, vp);
+
+	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
+	// Set scissor dynamically
+	cmd.setScissor(0, scissor);
+
+	// Draw three vertices with one instance.
+	cmd.draw(3, 1, 0, 0);
+
+	// Complete render pass.
+	cmd.endRenderPass();
+
+	// Complete the command buffer.
+	cmd.end();
+
+	// Submit it to the queue with a release semaphore.
+	if (!context.per_frame[swapchain_index].swapchain_release_semaphore)
+	{
+		context.per_frame[swapchain_index].swapchain_release_semaphore = context.device.createSemaphore({});
+	}
+
+	vk::PipelineStageFlags wait_stage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+	vk::SubmitInfo info(context.per_frame[swapchain_index].swapchain_acquire_semaphore, wait_stage, cmd,
+		context.per_frame[swapchain_index].swapchain_release_semaphore);
+	// Submit command buffer to graphics queue
+	context.queue.submit(info, context.per_frame[swapchain_index].queue_submit_fence);
+}
+vk::Result VulkanHPP::AcquireNextImage(Context& context, uint32_t* image)
+{
+	vk::Semaphore acquire_semaphore;
+	if (context.recycled_semaphores.empty())
+	{
+		acquire_semaphore = context.device.createSemaphore({});
+	}
+	else
+	{
+		acquire_semaphore = context.recycled_semaphores.back();
+		context.recycled_semaphores.pop_back();
+	}
+
+	vk::Result res;
+	std::tie(res, *image) = context.device.acquireNextImageKHR(context.swapchain, UINT64_MAX, acquire_semaphore);
+
+	if (res != vk::Result::eSuccess)
+	{
+		context.recycled_semaphores.push_back(acquire_semaphore);
+		return res;
+	}
+
+	// If we have outstanding fences for this swapchain image, wait for them to complete first.
+	// After begin frame returns, it is safe to reuse or delete resources which
+	// were used previously.
+	//
+	// We wait for fences which completes N frames earlier, so we do not stall,
+	// waiting for all GPU work to complete before this returns.
+	// Normally, this doesn't really block at all,
+	// since we're waiting for old frames to have been completed, but just in case.
+	if (context.per_frame[*image].queue_submit_fence)
+	{
+		context.device.waitForFences(context.per_frame[*image].queue_submit_fence, true, UINT64_MAX);
+		context.device.resetFences(context.per_frame[*image].queue_submit_fence);
+	}
+
+	if (context.per_frame[*image].primary_command_pool)
+	{
+		context.device.resetCommandPool(context.per_frame[*image].primary_command_pool);
+	}
+
+	// Recycle the old semaphore back into the semaphore manager.
+	vk::Semaphore old_semaphore = context.per_frame[*image].swapchain_acquire_semaphore;
+
+	if (old_semaphore)
+	{
+		context.recycled_semaphores.push_back(old_semaphore);
+	}
+
+	context.per_frame[*image].swapchain_acquire_semaphore = acquire_semaphore;
+
+	return vk::Result::eSuccess;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 vk::SurfaceKHR VulkanHPP::CreateSurface(vk::Instance instance, vk::PhysicalDevice)
@@ -648,47 +1035,9 @@ vk::SurfaceKHR VulkanHPP::CreateSurface(vk::Instance instance, vk::PhysicalDevic
 
 	return surface;
 }
-void VulkanHPP::SelectPhysicalDeviceAndInstance(Context& context)
-{
-	std::vector<vk::PhysicalDevice> gpus = context.instance.enumeratePhysicalDevices();
-
-	for (size_t i = 0; i < gpus.size() && (context.graphics_queue_index < 0); i++)
-	{
-		context.gpu = gpus[i];
-
-		std::vector<vk::QueueFamilyProperties> queue_family_properties = context.gpu.getQueueFamilyProperties();
-
-		if (queue_family_properties.empty())
-		{
-			throw std::runtime_error("No queue family found.");
-		}
-
-		if (context.surface)
-		{
-			context.instance.destroySurfaceKHR(context.surface);
-		}
-		context.surface = CreateSurface(context.instance, context.gpu);
-
-		for (uint32_t j = 0; j < static_cast<uint32_t>(queue_family_properties.size()); j++)
-		{
-			vk::Bool32 supports_present = context.gpu.getSurfaceSupportKHR(j, context.surface);
-
-			// Find a queue family which supports graphics and presentation.
-			if ((queue_family_properties[j].queueFlags & vk::QueueFlagBits::eGraphics) && supports_present)
-			{
-				context.graphics_queue_index = j;
-				break;
-			}
-		}
-	}
-
-	if (context.graphics_queue_index < 0)
-	{
-		LOGE("Did not find suitable queue which supports graphics and presentation.");
-	}
 
 
-}
+
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
 /// @brief A debug callback called from Vulkan validation layers.
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type,
@@ -716,111 +1065,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 #endif
 
 
-
-void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers)
-{
-	fmt::print("Initializing Vulkan");
-
-	//alternative
-	// vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
-	// 	VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
-	// auto width = 1024;
-	// auto height = 768;
-	//
-	// glfwInit();
-	// glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	// auto window = glfwCreateWindow(width, height, "Vulkan 101", nullptr, nullptr);
-	//
-	// auto glfwExtensionCount = 0u;
-	// auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-	// std::vector<const char*> glfwExtensionsVector(glfwExtensions, glfwExtensions + glfwExtensionCount);
-	// glfwExtensionsVector.push_back("VK_EXT_debug_utils");
-	// auto layers = std::vector<const char*>{ "VK_LAYER_KHRONOS_validation" };
-	//
-	//
-	// auto instance = vk::createInstanceUnique(
-	// 	vk::InstanceCreateInfo{ {}, &appInfo, static_cast<uint32_t>(layers.size()), layers.data(),
-	// 		static_cast<uint32_t>(glfwExtensionsVector.size()), glfwExtensionsVector.data() });
-	// auto dldi = vk::DispatchLoaderDynamic(*instance, vkGetInstanceProcAddr);
-
-	static vk::DynamicLoader  dl;
-	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
-
-	std::vector<vk::ExtensionProperties> instance_extensions = vk::enumerateInstanceExtensionProperties();
-	std::vector<const char*> active_instance_extensions(required_instance_extensions);
-
-#pragma region platform
-#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	active_instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-#endif
-#if defined(VK_USE_PLATFORM_ANDROID_KHR)
-	active_instance_extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_WIN32_KHR)
-	active_instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_MACOS_MVK)
-	active_instance_extensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-	active_instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
-	active_instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	active_instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_DISPLAY_KHR)
-	active_instance_extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
-#else
-#	pragma error Platform not supported
-#endif
-#pragma endregion 
-
-	if (!ValidateExtensions(active_instance_extensions, instance_extensions))
-	{
-		throw std::runtime_error("Required instance extensions are missing.");
-	}
-
-	std::vector<vk::LayerProperties> supported_validation_layers = vk::enumerateInstanceLayerProperties();
-
-	std::vector<const char*> requested_validation_layers(required_validation_layers);
-
-#ifdef VKB_VALIDATION_LAYERS
-	// Determine the optimal validation layers to enable that are necessary for useful debugging
-	std::vector<const char*> optimal_validation_layers = get_optimal_validation_layers(supported_validation_layers);
-	requested_validation_layers.insert(requested_validation_layers.end(), optimal_validation_layers.begin(), optimal_validation_layers.end());
-#endif
-
-	//todo use spdlog!
-	if (ValidateLayers(requested_validation_layers, supported_validation_layers))
-	{
-		//fmt::print("Enabled Validation Layers:");
-		for (const auto& layer : requested_validation_layers)
-		{
-			//fmt::print("	\t{}", layer);
-		}
-	}
-	else
-	{
-		throw std::runtime_error("Required validation layers are missing.");
-	}
-	vk::ApplicationInfo app("HPP Vulkan 2", {}, "Ported from Vulkan Samples", VK_MAKE_VERSION(1, 0, 0));
-
-	vk::InstanceCreateInfo instance_info({}, &app, requested_validation_layers, active_instance_extensions);
-
-#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	vk::DebugReportCallbackCreateInfoEXT debug_report_create_info(vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eWarning, debug_callback);
-
-	instance_info.pNext = &debug_report_create_info;
-#endif
-
-	// Create the Vulkan instance
-	context.instance = vk::createInstance(instance_info);
-
-	// initialize function pointers for instance
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(context.instance);
-
-#if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	context.debug_callback = context.instance.createDebugReportCallbackEXT(debug_report_create_info);
-#endif
-}
 
 
 bool VulkanHPP::ValidateExtensions(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available)
@@ -977,7 +1221,7 @@ void VulkanHPP::Resize(const uint32_t, const uint32_t)
 	InitSwapchain(m_Context);
 	InitFrameBuffers(m_Context);
 }
- 
+
 void VulkanHPP::TearDownFramebuffers(Context& context)
 {
 	// Wait until device is idle before teardown.
@@ -997,14 +1241,14 @@ void VulkanHPP::InitLogger()
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 	auto logger = std::make_shared<spdlog::logger>("logger", sinks.begin(), sinks.end());
-	 #ifdef VKB_DEBUG
-	 	logger->set_level(spdlog::level::debug);
-	 #else
-	 	logger->set_level(spdlog::level::info);
-	 #endif
-	 
-	 	logger->set_pattern(LOGGER_FORMAT);
-	 	spdlog::set_default_logger(logger);
-	 	LOGI("Logger initialized");
+#ifdef VKB_DEBUG
+	logger->set_level(spdlog::level::debug);
+#else
+	logger->set_level(spdlog::level::info);
+#endif
+
+	logger->set_pattern(LOGGER_FORMAT);
+	spdlog::set_default_logger(logger);
+	LOGI("Logger initialized");
 
 }
