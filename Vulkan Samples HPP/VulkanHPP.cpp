@@ -20,6 +20,7 @@ __pragma(warning(push, 0))
 //#include <glm/glm.hpp>
 
 #include <glm/glm.hpp>
+#include <typeindex>
 //#include <glm/fwd.hpp>
 #define GLFW_DLL
 #include <GLFW/glfw3.h>
@@ -152,29 +153,92 @@ Mesh triMesh = Mesh(
 	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
 	}, { 0, 1, 2 });
 
-template<typename T>
-static constexpr int GetElemSize ()
+template <typename T>
+concept vec = requires(T v)
 {
-	//if constexpr (std::is_same<T,   glm::vec1>) return 1;
+	{v.length()} -> std::convertible_to<int>;
+};
+
+
+template<typename T>
+requires vec<T>
+static constexpr int GetElemSize()
+{
+	return T::length();
+	//if constexpr (std::is_same<T, glm::vec1>::value) return 1;
+	//if constexpr (std::is_same<T, glm::vec2>::value) return 2;
+	//if constexpr (std::is_same<T, glm::vec3>::value) return 3;
+	//if constexpr (std::is_same<T, glm::vec4>::value) return 4;
 	//if constexpr (std::is_same<T,   glm::vec2>) return 2;
 	//if constexpr (std::is_same<T,   glm::vec3>) return 2;
 	//if constexpr (std::is_same<T,   glm::vec4>) return 2;
 	//glm::vec2 testVec{ 1,2 };
 	//if constexpr (std::is_same_v(T, T)) return 2;
-	 return 1;
- 
+	return 1;
+
 }
+
+enum class attribEnum
+{
+	Scalar,
+	Vec2,
+	Vec3,
+	Vec4
+};
+
 
 template <typename... Types>
 struct VertexData
 {
-	std::tuple<Types...> items;
-    static const int count = sizeof...(Types);
-	static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
-   // static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
-	static constexpr std::array<int, count> componentLenghts{GetElemSize<Types>( )...};
-};
+	//static const std::tuple<Types...> items;
+	static const int count = sizeof...(Types);
+	static constexpr std::array<int, count> byteSizes{ sizeof(Types)... };
+	// static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
+	static constexpr std::array<int, count> componentLenghts{ Types::length()... };
+	static const inline  std::array<std::type_index, 3> map = { std::type_index{typeid(float)}, std::type_index{typeid(int)},std::type_index{typeid(char)} };
 
+	//static const inline std::array<int, count> typeIndices = { std::index_sequence<Types...>() };
+	// static constexpr std::array<int, sizeof...(Types)> typeIndices = std::array{Types...};
+
+	template <class T, class Tuple>
+	struct Index;
+
+	template <class T, class... Types>
+	struct Index<T, std::tuple<T, Types...>> {
+		static const std::size_t value = 0;
+	};
+
+	template <class T, class U, class... Types>
+	struct Index<T, std::tuple<U, Types...>> {
+		static const std::size_t value = 1 + Index<T, std::tuple<Types...>>::value;
+	};
+
+	static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
+
+	template<typename T>
+	static const T GetMeme(int i)
+	{
+		return __nth_element(i, Types...);
+	}
+
+	template<typename T>
+	static  const int GetIndex() 
+	{
+		return  lookup.at(std::type_index{ typeid(T) });
+	}
+
+	//
+	//template<typename T>
+	//private static constexpr AddToMap(T key)
+	//{
+	//	std::type_index
+	//}
+
+
+	//		template<typename T>
+//	static constexpr T Get() { return }
+	//static constexpr std::vector<int> = std::iota<5>;
+};
 template<typename T>
 struct VertexBuffer
 {
@@ -183,22 +247,71 @@ struct VertexBuffer
 };
 
 
+std::unordered_map<std::type_index, int> mymap = {
+	{std::type_index{typeid(float)}, 3 },
+	{std::type_index{typeid(int)}, 2 },
+	{std::type_index{typeid(char)}, 1 }
+
+};
+
+template<typename T>
+int GetIndex()
+{
+	return mymap[std::type_index{ typeid(T) }];
+}
+
 void VulkanHPP::Prepare()
 {
+
+	int zz = GetIndex<float>();
+
 	a.impl.D();
 	b.impl.D();
-	VertexData < glm::vec3, glm::vec2 > da;
-	 
-	VertexBuffer<VertexData<glm::vec3, glm::vec2>> vbuffer;
+	VertexData<glm::vec1, glm::vec2, glm::vec3, glm::vec4> da;
+
+
+	int i1 = da.GetIndex<glm::vec1>();
+	int i2 = da.GetIndex<glm::vec2>();
+	int i3 = da.GetIndex<glm::vec3>();
+	int i4 = da.GetIndex<glm::vec4>();
+
+	//VertexBuffer<> vbuffer;
 	//glm::vec<_> asda;
-	
+
+
+
 	constexpr int size = sizeof(da);
 	constexpr int size1 = da.count;
 	constexpr auto bytes = da.byteSizes;
 	constexpr auto componentSizes = da.componentLenghts;
+	const auto maoapap = da.lookup;
+	using byteArena = std::array<std::byte, sizeof(int)>;
+	union
+	{
+		int val;
+		byteArena val2;
+	}unionLmao;
 
+	unionLmao.val = 5;
+	auto& arena2 = unionLmao.val2;
+	for (auto b : arena2)
+		std::cout << std::to_integer<int>(b);
+	int ayayaya = 198;
 
+	const std::byte* p = reinterpret_cast<std::byte*>(&ayayaya);
+	constexpr size_t sz = sizeof(decltype(ayayaya));
+	for (std::size_t i = 0; i != sz; ++i)
+	{
+		std::printf("\nThe byte #%zu is 0x%02X", i, p[i]);
+	}
 
+	std::variant<int, byteArena>   lmao = 5;
+	//lmao = 5;
+	//lmao.emplace<byteArena>(5);
+//	 auto& arr = std::get<byteArena>(lmao);
+
+	//for (std::byte b : arr)
+	//	std::cout << std::to_integer<int>(b);
 
 
 	std::variant<int, float> aaa;
@@ -211,10 +324,10 @@ void VulkanHPP::Prepare()
 
 	aa.emplace<float>(5);
 	fmt::print("type2: {}", aa.type().name());
-	
 
 
-//	aa.emplace(std::vector<)
+
+	//	aa.emplace(std::vector<)
 
 	LoadModel();
 	InitLogger();
