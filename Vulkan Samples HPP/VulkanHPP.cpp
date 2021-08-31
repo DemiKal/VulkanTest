@@ -1,15 +1,26 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VKB_DEBUG 1
 #define VK_USE_PLATFORM_WIN32_KHR 1
-
 #define VMA_IMPLEMENTATION
+#include <tuple>
 #include "vk_mem_alloc.h"
 #include "VulkanHPP.h"
-
+#include <variant>
+#include <typeinfo>
 __pragma(warning(push, 0))
-
-
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
+#include "tiny_gltf.h"
 #define GLFW_INCLUDE_VULKAN
+#include <any>
+
+//#define GLM_FORCE_CTOR_INIT
+//#include <glm/glm.hpp>
+
+#include <glm/glm.hpp>
+//#include <glm/fwd.hpp>
 #define GLFW_DLL
 #include <GLFW/glfw3.h>
 
@@ -18,6 +29,7 @@ __pragma(warning(push, 0))
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
 __pragma(warning(pop))
 
 
@@ -54,10 +66,58 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void window_size_callback(GLFWwindow* window, int width, int height);
 
+
+int LoadModel()
+{
+	std::string filename = "../Assets/DamagedHelmet.glb";
+	using namespace tinygltf;
+
+	Model model;
+	TinyGLTF loader;
+	std::string err;
+	std::string warn;
+	bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
+	//bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]); // for binary glTF(.glb)
+
+	if (!warn.empty()) {
+		printf("Warn: %s\n", warn.c_str());
+	}
+
+	if (!err.empty()) {
+		printf("Err: %s\n", err.c_str());
+	}
+
+	if (!ret) {
+		printf("Failed to parse glTF\n");
+		return -1;
+	}
+}
+
 struct Vertex {
 	float pos[3];
 	float col[3];
 };
+
+
+struct ImplA
+{
+	int D() { return 3; }
+};
+struct ImplB
+{
+	int D() { return 6; }
+};
+
+template<typename T>
+struct Holder
+{
+	T impl;
+};
+
+Holder<ImplA> a;
+Holder<ImplB> b;
+
+
 
 template<typename T>
 struct Buffer
@@ -92,9 +152,71 @@ Mesh triMesh = Mesh(
 	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
 	}, { 0, 1, 2 });
 
+template<typename T>
+static constexpr int GetElemSize ()
+{
+	//if constexpr (std::is_same<T,   glm::vec1>) return 1;
+	//if constexpr (std::is_same<T,   glm::vec2>) return 2;
+	//if constexpr (std::is_same<T,   glm::vec3>) return 2;
+	//if constexpr (std::is_same<T,   glm::vec4>) return 2;
+	//glm::vec2 testVec{ 1,2 };
+	//if constexpr (std::is_same_v(T, T)) return 2;
+	 return 1;
+ 
+}
+
+template <typename... Types>
+struct VertexData
+{
+	std::tuple<Types...> items;
+    static const int count = sizeof...(Types);
+	static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
+   // static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
+	static constexpr std::array<int, count> componentLenghts{GetElemSize<Types>( )...};
+};
+
+template<typename T>
+struct VertexBuffer
+{
+	std::array<T, sizeof(T)> view;
+	std::vector<std::byte> data;
+};
+
 
 void VulkanHPP::Prepare()
 {
+	a.impl.D();
+	b.impl.D();
+	VertexData < glm::vec3, glm::vec2 > da;
+	 
+	VertexBuffer<VertexData<glm::vec3, glm::vec2>> vbuffer;
+	//glm::vec<_> asda;
+	
+	constexpr int size = sizeof(da);
+	constexpr int size1 = da.count;
+	constexpr auto bytes = da.byteSizes;
+	constexpr auto componentSizes = da.componentLenghts;
+
+
+
+
+
+	std::variant<int, float> aaa;
+	std::vector<Holder<std::variant<ImplA, ImplB>  >> asa;
+	std::any aa = int{ 12 };
+	fmt::print("type1: {}", aa.type().name());
+
+	const std::any b = 14.4;
+	const auto asdas = b.type().name();
+
+	aa.emplace<float>(5);
+	fmt::print("type2: {}", aa.type().name());
+	
+
+
+//	aa.emplace(std::vector<)
+
+	LoadModel();
 	InitLogger();
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
@@ -159,7 +281,7 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 
 
 	auto cmdBuffer_AI = vk::CommandBufferAllocateInfo{ context.m_UploadContext._commandPool, vk::CommandBufferLevel::ePrimary, 1 };
-	auto allocatedCmdBuffers = context.device.allocateCommandBuffers(cmdBuffer_AI );
+	auto allocatedCmdBuffers = context.device.allocateCommandBuffers(cmdBuffer_AI);
 	vk::CommandBuffer cmdBuffer = allocatedCmdBuffers.front();
 
 
@@ -866,7 +988,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Draw three vertices with one instance.
 	//cmd.draw(3, 1, 0, 0);
-	cmd.drawIndexed(triMesh.indexBuffer.bufferdata.size(), 1, 0, 0, 0);
+	cmd.drawIndexed(static_cast<uint32_t>(triMesh.indexBuffer.bufferdata.size()), 1, 0, 0, 0);
 
 	// Complete render pass.
 	cmd.endRenderPass();
