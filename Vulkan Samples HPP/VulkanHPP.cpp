@@ -212,8 +212,8 @@ struct VertexData
 	struct Index<T, std::tuple<U, Types...>> {
 		static const std::size_t value = 1 + Index<T, std::tuple<Types...>>::value;
 	};
-
 	static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
+	static constexpr int stride = ( sizeof(Types) + ...) ;
 
 	template<typename T>
 	static const T GetMeme(int i)
@@ -283,6 +283,7 @@ void VulkanHPP::Prepare()
 	constexpr int size = sizeof(da);
 	constexpr int size1 = da.count;
 	constexpr auto bytes = da.byteSizes;
+	constexpr auto stride = da.stride;
 	constexpr auto componentSizes = da.componentLenghts;
 	const auto maoapap = da.lookup;
 	using byteArena = std::array<std::byte, sizeof(int)>;
