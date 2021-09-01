@@ -262,6 +262,17 @@ static constexpr bool IsValidAttrib()
 	//if constexpr (std::is_same <T, float>::value) return true; return false;
 	return AttribLUT[T];
 }
+template<bool arg_N>
+struct val {
+	static constexpr auto N = arg_N;
+};
+
+template<template <bool> typename T, bool N>
+constexpr auto extract(const T<N>&)->val<N>;
+
+template<typename T>
+constexpr auto extract_N = decltype(extract(std::declval<T>()))::N;
+
 
 template<typename...Ts>
 using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
@@ -270,7 +281,8 @@ template<typename...Ts>
 using remove_t = tuple_cat_t<
 	typename std::conditional<
 	//IsValidAttrib<Ts>(),
-	!Ts::enabled(),
+	//!Ts::enabled(),
+	!extract_N<Ts>,
 	std::tuple<>,   //<-- if true
 	std::tuple<Ts>  //<-- if not
 	>::type...
@@ -337,16 +349,72 @@ class Nest
 //constexpr int sizzzz = sizeof(Values<glm::vec2, glm::vec3>::Holder < glm::vec2{ 1,1 }, glm::vec3{ 3,3,3 } > ::vals);
 //constexpr size_t s2 = Values<glm::vec2, glm::vec3>::size();
 
-template<bool T>
-struct VertexAttrib_Position2
+
+struct VertexAttribute
 {
-	//Recurse<int, float, char> as;
+
+
+};
+
+template<typename T>
+size_t GetStrideImpl()
+{
+
+}
+
+template<typename T>
+size_t GetStride()
+{
+	return T::length() * sizeof(T::type);
+}
+
+
+template<typename T>
+size_t GetStride(T)
+{
+	return T::length() * sizeof(T::type);
+}
+
+
+struct TexCoord_Attribute
+{
+	TexCoord_Attribute(float    x, float    y) : val{ x,y } {}
+	TexCoord_Attribute() : val{ 0,0 } {}
+	//glm::vec2 val;
+	glm::vec2 val;
+	vk::Format format{ vk::Format::eR32G32Sfloat };
+
+	size_t Stride() { return val.length() * sizeof(decltype(val)); }
+};
+
+struct Position2_Attribute
+{
+	Position2_Attribute(float x, float y) : val{ x,y } {};
 	glm::vec2 val;
 };
-struct VertexAttrib_Position
+
+struct Position_Attribute
 {
+	Position_Attribute(float x, float y, float z) : val{ x,y,z } {};
+	Position_Attribute() : val{ 0,0,0 } {};
 	glm::vec3 val;
 };
+
+//format{ vk::Format::eR32G32Sfloat };
+
+using T = std::variant< TexCoord_Attribute, Position2_Attribute, Position_Attribute>;
+
+static constexpr vk::Format GetFormat(const  T& att)
+{
+	//constexpr size_t i = att.index();
+	if (std::get_if<TexCoord_Attribute>(&att))  return vk::Format::eR32G32B32Sfloat;
+	if (std::get_if<Position_Attribute>(&att))  return vk::Format::eR32G32B32Sfloat;
+	if (std::get_if<Position2_Attribute>(&att)) return vk::Format::eR32G32Sfloat;
+
+	assert(false);
+	return vk::Format::eUndefined;
+}
+
 
 //N=number of colors (max 8), L is color lenght (vec3/4), T is type (float, int, etc)
 template<int N, int L, typename T, glm::qualifier qual = glm::qualifier::defaultp>
@@ -419,8 +487,8 @@ static constexpr auto EnableCheck()
 };
 
 template<bool b>
-struct lolmao  
-{  
+struct lolmao
+{
 	//typedef b type;
 	//static constexpr bool enabled(){ return b; }
 };
@@ -534,18 +602,18 @@ struct Toggle
 template<bool b>
 struct A { static constexpr bool enabled() { return b; } };
 template<bool b>
-struct B  { static constexpr bool enabled() { return b; } };
+struct B { static constexpr bool enabled() { return b; } };
 template<bool b>
 struct C { static constexpr bool enabled() { return b; } };
 
 template<typename ...Ts>
-static constexpr auto Func22 ()
+static constexpr auto Func22()
 {
-	using T = remove_t<Ts...> ;
+	using T = remove_t<Ts...>;
 	//return //std::tuple<decltype(T)>)T{};
 	//static_assert (std::is_same< T, std::tuple<B<true>>>::value, "asd");
 	return T{};
-	
+
 }
 
 
@@ -597,7 +665,7 @@ std::unordered_map<std::type_index, int> mymap = {
 //		//ptr = void Hello(int i){ fmt::print("{}", i); }
 //	}
 //};
- 
+
 
 
 template<typename T>
@@ -617,27 +685,120 @@ int GetIndex()
 //template<typename... A, typename... B>
 //void f(B...) { }
 template <typename T1, typename... T2>
-constexpr bool check_for_type(const std::tuple<T2...>& ) {
+constexpr bool check_for_type(const std::tuple<T2...>&) {
 	return std::disjunction_v<std::is_same<T1, T2>...>;
 }
 
+template<bool N>
+struct biden
+{
+
+};
+//int extract 
+
+
+
+
+const bool GetBool(int i)
+{
+	return i < 10 ? true : false;
+}
+
+template <typename T>
+struct VertexHelper
+{
+	static const auto length = T::length();
+	static const auto typeSize = sizeof(T::value_type);
+	static const auto stride = typeSize * length;
+};
+
+bool fff = true;
+
+template<class V>
+std::type_info const& var_type(V const& v) {
+	return std::visit([](auto&& x)->decltype(auto) { return typeid(x); }, v);
+}
+
+#define AttribTypes  TexCoord_Attribute, Position2_Attribute, Position_Attribute 
+#define AttributeVariant std::variant<AttribTypes> 
+
+template< typename T >
+bool fea(AttributeVariant& var) { return std::get_if<T>(&var); }
+
+
+ template<typename ...Ts>
+ bool Iterate(AttributeVariant& var)
+ {
+ 	//return (std::get_if<Ts>(var) || ...);
+ 	return (std::get_if<Ts>(&var) || ...);
+ }
 
 
 void VulkanHPP::Prepare()
 {
 	{
-		constexpr auto jej = Func22<A<true>, B<false>, C<true>>();
+	
+		//using AttribTypes = TexCoord_Attribute, Position2_Attribute, Position_Attribute;
+		std::variant<AttribTypes> attribVariant;
+		std::vector<decltype(attribVariant)> attribVector;
+		attribVector.emplace_back(TexCoord_Attribute(1, 3));
+		attribVector.emplace_back(Position_Attribute(1, 3, 5));
+		attribVector.emplace_back(Position2_Attribute(8, 3));
+		attribVariant.emplace<TexCoord_Attribute>(0.5f, 0.1f);
+		const auto idx = attribVariant.index();
+		auto currVar = std::get<0>(attribVariant);
+	 
+		bool hasComponent1 = Iterate<TexCoord_Attribute, Position2_Attribute>(attribVector[0]);
+		 bool hasComponent2 = fea<Position_Attribute>(attribVector[0]);
+	    //bool hasComponent2 = std::get_if<TexCoord_Attribute>(&attribVector[0]);
+		//bool hasComponent = std::get_if<TexCoord_Attribute>(&attribVector[0]);
+
+		//size_t  striderino1 = GetStride(currVar.val );
+		//size_t  striderino2 = GetStride< decltype(Position_Attribute.>(  );
+		//size_t  striderino3 = GetStride< Position2_Attribute>(  );
+		//for (int i = 0; i < 3; i++)
+		//{
+		//	const auto ptr = std::get_if<i>(attribVariant);
+		//}
+		auto format = GetFormat(attribVector[0]);
+		auto format1 = GetFormat(attribVector[1]);
+		auto format2 = GetFormat(attribVector[2]);
+
+	}
+	//attribVariant = TexCoord_Attrib(0.5f, 0.1f);
+
+	//VertexAttrib_Position
+	VertexHelper<glm::vec2> aaaa;
+	constexpr auto x312 = aaaa.length;
+	constexpr auto xasd = aaaa.typeSize;
+	constexpr auto zxx = aaaa.stride;
+
+
+	const bool bb = GetBool(432);
+	constexpr auto extraction = extract_N<A<false> >;
+	const bool falal = fff;
+	{
+		//using T1 = A< adasd ? false : true >{};
+		auto T1 = A<true>{};
+		auto T2 = A<false>{};
+
+		auto z = std::variant<A<true>, A<false>>{};// T1: T2;
+		//z.emplace<A<false>>(  );
+		std::any zxzc;
+		//bb ? std::get<A<false>>(z) : std::get<A<true>>(z);
+		constexpr auto jej = Func22< B<false>, B<false>, C<true>>();
+
 		constexpr int tupsize = std::tuple_size_v<decltype(jej)>;
 		std::tuple<int, char, double> mytuple(10, 'a', 3.14);
 		constexpr int tupsiz2e = std::tuple_size_v<decltype(mytuple)>;
-		constexpr auto hastype1 = check_for_type < A<true> >( jej);
-		constexpr auto hastype2 = check_for_type < C<true> >( jej);
-		constexpr auto hastype3 = check_for_type < B<false> >( jej);
+		constexpr auto hastype1 = check_for_type < A<true> >(jej);
+		constexpr auto hastype2 = check_for_type < C<true> >(jej);
+		constexpr auto hastype3 = check_for_type < B<false> >(jej);
 
 
-	 auto xx = std::get< 0 >(jej);
-	// auto aex = std::get< 1>(jej);
-	 int j = 121;
+		auto xx = std::get< 0 >(jej);
+		// auto aex = std::get< 1>(jej);
+		int j = 121;
 
 	}
 
