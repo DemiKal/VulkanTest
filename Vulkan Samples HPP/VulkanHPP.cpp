@@ -726,18 +726,47 @@ template< typename T >
 bool fea(AttributeVariant& var) { return std::get_if<T>(&var); }
 
 
- template<typename ...Ts>
- bool Iterate(AttributeVariant& var)
- {
- 	//return (std::get_if<Ts>(var) || ...);
- 	return (std::get_if<Ts>(&var) || ...);
- }
+template<typename ...Ts>
+bool Iterate(AttributeVariant& var)
+{
+	//return (std::get_if<Ts>(var) || ...);
+	return (std::get_if<Ts>(&var) || ...);
+}
+
+template<typename T>
+struct VertexAttributeNew
+{
+	static const T val ;
+	constexpr  static size_t Stride() { return T::length() * sizeof(T::value_type); }
+	constexpr  static size_t Length() { return T::length(); }
+	constexpr  static  vk::Format GetFormat()
+	{
+		if constexpr (std::is_same_v<T, glm::vec1>) return  vk::Format::eR32Sfloat;
+		if constexpr (std::is_same_v<T, glm::vec2>) return  vk::Format::eR32G32Sfloat;
+		if constexpr (std::is_same_v<T, glm::vec3>) return  vk::Format::eR32G32B32Sfloat;
+		if constexpr (std::is_same_v<T, glm::vec4>) return  vk::Format::eR32G32B32A32Sfloat;
+		
+		if constexpr (std::is_same_v<T, glm::ivec1>) return  vk::Format::eR32Sint;
+		if constexpr (std::is_same_v<T, glm::ivec2>) return  vk::Format::eR32G32Sint;
+		if constexpr (std::is_same_v<T, glm::ivec3>) return  vk::Format::eR32G32B32Sint;
+		if constexpr (std::is_same_v<T, glm::ivec4>) return  vk::Format::eR32G32B32A32Sint;
+	}
+};
+
+
 
 
 void VulkanHPP::Prepare()
 {
 	{
-	
+		{
+			constexpr VertexAttributeNew<glm::ivec3> attV{};
+			constexpr auto a1 = attV.Stride();
+			constexpr auto a2 = attV.Length();
+			constexpr auto a3 = attV.GetFormat();
+		}
+
+
 		//using AttribTypes = TexCoord_Attribute, Position2_Attribute, Position_Attribute;
 		std::variant<AttribTypes> attribVariant;
 		std::vector<decltype(attribVariant)> attribVector;
@@ -747,10 +776,10 @@ void VulkanHPP::Prepare()
 		attribVariant.emplace<TexCoord_Attribute>(0.5f, 0.1f);
 		const auto idx = attribVariant.index();
 		auto currVar = std::get<0>(attribVariant);
-	 
+
 		bool hasComponent1 = Iterate<TexCoord_Attribute, Position2_Attribute>(attribVector[0]);
-		 bool hasComponent2 = fea<Position_Attribute>(attribVector[0]);
-	    //bool hasComponent2 = std::get_if<TexCoord_Attribute>(&attribVector[0]);
+		bool hasComponent2 = fea<Position_Attribute>(attribVector[0]);
+		//bool hasComponent2 = std::get_if<TexCoord_Attribute>(&attribVector[0]);
 		//bool hasComponent = std::get_if<TexCoord_Attribute>(&attribVector[0]);
 
 		//size_t  striderino1 = GetStride(currVar.val );
