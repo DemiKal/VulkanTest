@@ -19,8 +19,11 @@ __pragma(warning(push, 0))
 //#define GLM_FORCE_CTOR_INIT
 //#include <glm/glm.hpp>
 
+
+
 #include <glm/glm.hpp>
 #include <typeindex>
+#include <unordered_set>
 //#include <glm/fwd.hpp>
 #define GLFW_DLL
 #include <GLFW/glfw3.h>
@@ -186,17 +189,278 @@ enum class attribEnum
 	Vec4
 };
 
+//template<typename T>
+//using vector = >  
+//template <typename T, int n, glm::qualifier q,   glm::vec<n, T, q> Types...>
 
+
+//only supports 32bit types
+enum class VertexAttrib
+{
+	Scalar,
+	Position3,
+	Color0,
+	Color1,
+	Color2,
+	Color3,
+	Color4,
+	Color5,
+	Color6,
+	Color7,
+	TexCoord1,
+	TexCoord2,
+	BoneIndex,
+	BoneWeight,
+	Normal,
+	Tangent,
+	Bitangent
+};
+
+
+
+template<typename T>
+static constexpr int IsValid() {
+	if constexpr (std::is_same<T, glm::vec1>::value) return 0;
+	if constexpr (std::is_same<T, glm::vec2>::value) return 1;
+	if constexpr (std::is_same<T, glm::vec3>::value) return 1;
+	if constexpr (std::is_same<T, glm::vec4>::value) return 0;
+	return 0;
+}
+
+template<typename T>
+static constexpr VertexAttrib AttributeToType()
+{
+	if constexpr (std::is_same<T, glm::vec1>::value) return VertexAttrib::Scalar;
+	//else if constexpr (std::is_same<T, glm::vec2>::value) return VertexAttrib::Float2;
+	else if constexpr (std::is_same<T, glm::vec3>::value) return VertexAttrib::Position3;
+	//else if constexpr (std::is_same<T, glm::vec4>::value) return VertexAttrib::Position4;
+	else return VertexAttrib::Scalar;
+
+}
+static const std::unordered_map<VertexAttrib, bool> AttribLUT
+{
+	{VertexAttrib::Scalar,		true},
+	//{VertexAttrib::Float2,		true},
+	{VertexAttrib::Position3,	true},
+	//{VertexAttrib::Position4,	false},
+	//{VertexAttrib::Color,		false},
+	{VertexAttrib::TexCoord1,	false},
+	{VertexAttrib::TexCoord2,	true},
+	{VertexAttrib::BoneIndex,	false},
+	{VertexAttrib::BoneWeight,	false},
+	{VertexAttrib::Normal,		true},
+	{VertexAttrib::Tangent,		false},
+	{VertexAttrib::Bitangent,	true}
+};
+
+//std::array<  VertexAttrib, 12> boolArr{ true, true, true, false,false,false, true,false, true,
+
+
+template<typename T>
+static constexpr bool IsValidAttrib()
+{
+	//if constexpr (std::is_same <T, float>::value) return true; return false;
+	return AttribLUT[T];
+}
+
+template<typename...Ts>
+using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
+
+template<typename...Ts>
+using remove_t = tuple_cat_t<
+	typename std::conditional<
+	//IsValidAttrib<Ts>(),
+	!Ts::enabled(),
+	std::tuple<>,   //<-- if true
+	std::tuple<Ts>  //<-- if not
+	>::type...
+>;
+
+template<typename T, typename ...Ts>
+struct Recurse
+{
+	//	std::pair <T, Recurse<Ts, Ts...>> val;
+};
+
+//reverse?
+//template<typename T>
+//static constexpr VertexAttrib ConvertToAttrib()
+//{
+//	if constexpr (std::is_same<T, glm::vec1>::value) return VertexAttrib::Scalar;
+//	if constexpr (std::is_same<T, glm::vec2>::value) return VertexAttrib::Scalar;
+//	if constexpr (std::is_same<T, glm::vec3>::value) return VertexAttrib::Scalar;
+//	if constexpr (std::is_same<T, glm::vec4>::value) return VertexAttrib::Scalar;
+//}
+
+//struct A1
+//{
+//	int i1;
+//};
+//
+//struct A2
+//{
+//	A1 a1;
+//	float j2;
+//};
+
+//template<typename T>
+//struct VertexConcept
+//{
+//	T MyAttribute;
+//};
+//
+//template<typename T, typename U>
+//struct VertexConcept
+//{
+//	T MyAttribute;
+//	VertexConcept<U> Rest;
+//
+//	//static const size_t stride = (sizeof(T) + Rest.stride);
+//};
+template <class T, template <class> class OtherType>
+class Nest
+{
+	OtherType<T> f;
+
+};
+//template<typename... Ts>
+//struct Values {
+//	template<Ts... Vs>
+//	struct Holder {
+//		static std::tuple<Ts...> vals;
+//	};
+//	//static constexpr size_t size() { return sizeof(Holder<Vs >::vals); }
+//};
+//
+//const auto t1 = glm::vec2{ 1,1 };
+//const auto t2 = glm::vec3{ 3,3,3 };
+//constexpr int sizzzz = sizeof(Values<glm::vec2, glm::vec3>::Holder < glm::vec2{ 1,1 }, glm::vec3{ 3,3,3 } > ::vals);
+//constexpr size_t s2 = Values<glm::vec2, glm::vec3>::size();
+
+template<bool T>
+struct VertexAttrib_Position2
+{
+	//Recurse<int, float, char> as;
+	glm::vec2 val;
+};
+struct VertexAttrib_Position
+{
+	glm::vec3 val;
+};
+
+//N=number of colors (max 8), L is color lenght (vec3/4), T is type (float, int, etc)
+template<int N, int L, typename T, glm::qualifier qual = glm::qualifier::defaultp>
+struct VertexAttrib_Color
+{
+	std::array<glm::vec<L, T, qual>, N> val;
+};
+
+template<typename L, typename T  > struct outer
+{
+
+	//template< glm::vec<L, T,  glm::qualifier::defaultp> V>
+	template< typename V >
+	struct VecH
+	{
+		static const V  ghiu{};
+		//func()
+		//{
+		//	return glm::vec<L, T>;
+		//}
+	};
+};
+
+//auto y = glm::dvec2::y;
+
+template<typename V, typename T>
+static constexpr auto ExtractT(T i)
+{
+	//auto a = glm::vec2::value_type;//a = 12.5f;;
+	//auto a = float;
+	return static_cast<V::value_type>(i);
+}
+
+template<typename V>
+static constexpr auto ExtractL()
+{
+	return V::length_type;//a = 12.5f;;
+	//auto a = float;
+	//return V::length;
+}
+
+
+
+
+//template< typename  ...Ts>
+//struct VertexConcept
+//{
+//	//Ts... var;
+//	//static VertexAttrib MyAttribute;
+//	//static const std::array<VertexAttrib, sizeof...(Ts)> attribs{  };
+//	//static const size_t stride = (sizeof(Ts[0]) + ...)
+//	//static const size_t stride = (sizeof(T) + Rest.stride);
+//};
+
+
+
+template <typename... Ts>
+struct Attribs
+{
+	//static constexpr std::tuple<VertexAttrib...> types { AttributeToType<Ts>() ... };
+	static const remove_t<Ts...> types;// { AttributeToType<Ts>() ... };
+	//Attribs() = default;
+};
+
+template <template <bool Boo> class Tee>
+static constexpr auto EnableCheck()
+{
+	//using T = Tee<Boo>;
+	return Tee;
+};
+
+template<bool b>
+struct lolmao  
+{  
+	//typedef b type;
+	//static constexpr bool enabled(){ return b; }
+};
+//lolmao<false>::type fasdas = true;
+//constexpr auto asdsadasdsa = EnableCheck<lolmao<false>> ();
+
+
+//struct enabledStruct
+//{
+//	template<bool b>
+//	static const bool enabled() { return b; }
+//};
+
+//static_assert(std::is_same<
+//							remove_t<lolmao<true>, lolmao<false>>, 
+//							std::tuple<lolmao<true>>>::value, "ayy");
+
+
+template<typename T>
+size_t MAX() { return sizeof(T); }
+template<typename T, typename U>
+size_t MAX() { std::max(sizeof(T), sizeof(U)); };
+
+template<typename T, typename ... Ts>
+size_t MAX() { MAX(T, Ts...); }
+
+
+
+//std::enable_if_t<std::is_integral<Integer>::value, bool> = true
 template <typename... Types>
+//typename = std::enable_if_t<true, bool> = true> 
 struct VertexData
 {
-	//static const std::tuple<Types...> items;
-	static const int count = sizeof...(Types);
+	//using Converted... = AttributeToType(Types)... ;
+	//static const  Attribs<Types...> attribs;
+	static constexpr int count = sizeof...(Types);
 	static constexpr std::array<int, count> byteSizes{ sizeof(Types)... };
-	// static constexpr std::array<int, count> byteSizes{sizeof(Types)...};
 	static constexpr std::array<int, count> componentLenghts{ Types::length()... };
-	static const inline  std::array<std::type_index, 3> map = { std::type_index{typeid(float)}, std::type_index{typeid(int)},std::type_index{typeid(char)} };
 
+	static const inline std::array<VertexAttrib, count> Attributes{ AttributeToType<Types>()... };
 	//static const inline std::array<int, count> typeIndices = { std::index_sequence<Types...>() };
 	// static constexpr std::array<int, sizeof...(Types)> typeIndices = std::array{Types...};
 
@@ -213,7 +477,27 @@ struct VertexData
 		static const std::size_t value = 1 + Index<T, std::tuple<Types...>>::value;
 	};
 	static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
-	static constexpr int stride = ( sizeof(Types) + ...) ;
+	static constexpr int stride = (sizeof(Types) + ...);
+	static constexpr std::array< VertexAttrib, count> types = { AttributeToType<Types>() ... };
+	//static const size_t maxzzz = MAX(Types,...); //std::max( std::max(sizeof(Types)...));
+
+
+
+
+	static constexpr size_t validCount = (IsValid<Types>() + ...);
+	//static std::vector<int> as; //= { if constexpr (IsValid<Types>()) { IsValid<Types>() }   ... };
+
+
+	//static std::vector<int> construct()
+	//{
+	//	static std::vector<int> vec{};  
+	//	if constexpr (IsValid<Types...>())
+	//		vec.emplace_back(IsValid<Types...>());
+	//
+	//	static_assert(vec.size() == validCount);
+	//	return vec;
+	//}
+	//static const inline std::vector<int> as = construct();
 
 	template<typename T>
 	static const T GetMeme(int i)
@@ -222,11 +506,11 @@ struct VertexData
 	}
 
 	template<typename T>
-	static  const int GetIndex() 
+	static  constexpr int GetIndex()
 	{
 		return  lookup.at(std::type_index{ typeid(T) });
 	}
-
+	operator std::string() const { return std::to_string(stride); }
 	//
 	//template<typename T>
 	//private static constexpr AddToMap(T key)
@@ -239,13 +523,56 @@ struct VertexData
 //	static constexpr T Get() { return }
 	//static constexpr std::vector<int> = std::iota<5>;
 };
+
+
+template<bool b>
+struct Toggle
+{
+	static const bool on{ b };
+};
+
+template<bool b>
+struct A { static constexpr bool enabled() { return b; } };
+template<bool b>
+struct B  { static constexpr bool enabled() { return b; } };
+template<bool b>
+struct C { static constexpr bool enabled() { return b; } };
+
+template<typename ...Ts>
+static constexpr auto Func22 ()
+{
+	using T = remove_t<Ts...> ;
+	//return //std::tuple<decltype(T)>)T{};
+	//static_assert (std::is_same< T, std::tuple<B<true>>>::value, "asd");
+	return T{};
+	
+}
+
+
+//static_assert (std::is_same< fffff, std::tuple<B<true>>>::value, "asd");
+int aaaaaaaaaaaaaaaaa = 1;
+//A<false> f;
+//template<class T, template<typename...> class  C> //I want <B> to be replaced by <b> and <T> by <A> 
+//static const bool Func()
+//{
+//	return T;
+//}
+
+//auto jjj = Func<  A<false > >();
+
 template<typename T>
 struct VertexBuffer
 {
 	std::array<T, sizeof(T)> view;
 	std::vector<std::byte> data;
+	static constexpr int Stride() { return T::stride; }
 };
-
+template<typename T>
+std::ostream& operator<<(std::ostream& Str, VertexData<T> const& v) {
+	// print something from v to str, e.g: Str << v.getX();
+	std::string asds = "asdasd";
+	return asds;
+}
 
 std::unordered_map<std::type_index, int> mymap = {
 	{std::type_index{typeid(float)}, 3 },
@@ -254,31 +581,114 @@ std::unordered_map<std::type_index, int> mymap = {
 
 };
 
+//struct Banana
+//{
+//	void* ptr;
+//	void func()
+//	{
+//		ptr = this;
+//	}
+//	void func2()
+//	{
+//		auto lambda = [&](int i) {fmt::print("{}", i); });
+//		auto v = VertexData<glm::vec2>{};
+//		//ptr = reinterpret_cast<void*>(&v);
+//		//((decltype(lambda))ptr)(2);
+//		//ptr = void Hello(int i){ fmt::print("{}", i); }
+//	}
+//};
+ 
+
+
 template<typename T>
 int GetIndex()
 {
 	return mymap[std::type_index{ typeid(T) }];
 }
 
+//template<bool ...B>
+//struct VertexEnum
+//{
+//
+//	static constexpr std::array<VertexAttrib, sizeof...(V)> arr = { B... };
+//	static constexpr std::unordered_set<VertexAttrib> set = {}
+//};
+
+//template<typename... A, typename... B>
+//void f(B...) { }
+template <typename T1, typename... T2>
+constexpr bool check_for_type(const std::tuple<T2...>& ) {
+	return std::disjunction_v<std::is_same<T1, T2>...>;
+}
+
+
+
 void VulkanHPP::Prepare()
 {
+	{
+		constexpr auto jej = Func22<A<true>, B<false>, C<true>>();
+		constexpr int tupsize = std::tuple_size_v<decltype(jej)>;
+		std::tuple<int, char, double> mytuple(10, 'a', 3.14);
+		constexpr int tupsiz2e = std::tuple_size_v<decltype(mytuple)>;
+		constexpr auto hastype1 = check_for_type < A<true> >( jej);
+		constexpr auto hastype2 = check_for_type < C<true> >( jej);
+		constexpr auto hastype3 = check_for_type < B<false> >( jej);
+
+
+	 auto xx = std::get< 0 >(jej);
+	// auto aex = std::get< 1>(jej);
+	 int j = 121;
+
+	}
+
+
+
+	{
+		constexpr auto jaja = ExtractT<glm::ivec3>(MAXULONG_PTR);
+		//ExtractL<glm::vec3>(); b;
+		const glm::vec3::value_type b = 12.5;
+
+		//VertexConcept<glm::vec2, glm::vec3> v1{};
+		//auto m1 = v1.MyAttribute;
+		//auto c1 = v1.Rest;
+		//auto m2 = c1.MyAttribute;
+		//constexpr int size = sizeof(v1);
+		//auto vvvvv = Vertex<VertexAttrib::Position3, VertexAttrib::Color>()
+	}
+	//VertexEnum<true, true, false, true> vert{};
+	//auto as = vert.arr;
+	//constexpr int szz = sizeof(vert);
+	//std::tuple< VertexAttrib, VertexAttrib::Color> as;
+	//std::tuple<int, int, int, int> as = remove_t<int, int, int, float, int>{};
+
+	//static_assert( std::is_same<
+	//	remove_t<int, int, char, int, float, int>,
+	//	std::tuple<char, float>
+	//>::value, "Oops");
+	bool p1 = true;
+
+	std::tuple < VertexAttrib, VertexAttrib> asdsa;
 
 	int zz = GetIndex<float>();
 
 	a.impl.D();
 	b.impl.D();
-	VertexData<glm::vec1, glm::vec2, glm::vec3, glm::vec4> da;
-
-
+	const VertexData<glm::vec1, glm::vec2, glm::vec3, glm::vec4> da;
+	std::cout << (std::string)da;
+	constexpr auto types = da.types;
+	constexpr int vald = da.validCount;
 	int i1 = da.GetIndex<glm::vec1>();
 	int i2 = da.GetIndex<glm::vec2>();
 	int i3 = da.GetIndex<glm::vec3>();
 	int i4 = da.GetIndex<glm::vec4>();
 
-	//VertexBuffer<> vbuffer;
+	VertexBuffer<VertexData<glm::vec4>> vbuffer;
+	constexpr int asdas = vbuffer.Stride();
+
 	//glm::vec<_> asda;
 
-
+	//auto asd = remove_t<char, float>{};
+	//auto asd = remove_t<VertexAttrib::Scalar, VertexAttrib::Position3>{};
 
 	constexpr int size = sizeof(da);
 	constexpr int size1 = da.count;
@@ -321,7 +731,7 @@ void VulkanHPP::Prepare()
 	fmt::print("type1: {}", aa.type().name());
 
 	const std::any b = 14.4;
-	const auto asdas = b.type().name();
+	const auto aaaasdas = b.type().name();
 
 	aa.emplace<float>(5);
 	fmt::print("type2: {}", aa.type().name());
