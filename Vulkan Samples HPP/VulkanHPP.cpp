@@ -630,22 +630,6 @@ int aaaaaaaaaaaaaaaaa = 1;
 
 
 
-
-
-template<typename T>
-struct VertexBuffer
-{
-	std::array<T, sizeof(T)> view;
-	std::vector<std::byte> data;
-	constexpr auto TotalStride()
-	{
-		auto l = [](const T& a, const T& b) {a.Stride() + b.Stride(); };
-		return 0;
-		//return std::accumulate(std::begin(view), std::end(view),  l);
-		//std::transform(std::begin)
-	}
-};
-
 template<typename T>
 std::ostream& operator<<(std::ostream& Str, VertexData<T> const& v) {
 	// print something from v to str, e.g: Str << v.getX();
@@ -738,13 +722,14 @@ bool Iterate(AttributeVariant& var)
 	return (std::get_if<Ts>(&var) || ...);
 }
 
-template<typename T>
+template<size_t I, typename T  >
 struct VertexAttributeNew : T //todo: add normalization?
 {
 	using T::T; //inherit constructor
-	constexpr static size_t Stride() { return T::length() * sizeof(T::value_type); }
-	constexpr static size_t Length() { return T::length(); }
-	constexpr static vk::Format GetFormat()
+	static constexpr size_t Idx = I;
+	static constexpr size_t Stride() { return T::length() * sizeof(T::value_type); }
+	static constexpr size_t Length() { return T::length(); }
+	static constexpr vk::Format GetFormat()
 	{
 		if constexpr (std::is_same_v<T, glm::vec1>) return  vk::Format::eR32Sfloat;
 		if constexpr (std::is_same_v<T, glm::vec2>) return  vk::Format::eR32G32Sfloat;
@@ -764,31 +749,157 @@ struct VertexAttributeNew : T //todo: add normalization?
 };
 
 //make bone weights static
-static constexpr int BoneIndexCount = 3; 
-using PositionAttribute = VertexAttributeNew<glm::vec3>;
-using TexCoordAttribute = VertexAttributeNew<glm::vec2>;
-using BitangentAttribute = VertexAttributeNew<glm::vec3>;
-using TangentAttribute = VertexAttributeNew<glm::vec3>;
-using NormalAttribute = VertexAttributeNew<glm::vec3>;
-using BoneWeight = VertexAttributeNew<glm::vec<BoneIndexCount, float>>;
-using BoneIndex = VertexAttributeNew<glm::vec<BoneIndexCount, int>>;
+static constexpr int BoneIndexCount = 3;
+using PositionAttribute = VertexAttributeNew<0, glm::vec3>;
+using ColorAttribute = VertexAttributeNew<1, glm::vec3>;
+using TexCoordAttribute = VertexAttributeNew<2, glm::vec2>;
+using BitangentAttribute = VertexAttributeNew<3, glm::vec3>;
+using TangentAttribute = VertexAttributeNew<4, glm::vec3>;
+using NormalAttribute = VertexAttributeNew<5, glm::vec3>;
+using BoneWeight = VertexAttributeNew<6, glm::vec<BoneIndexCount, float>>;
+using BoneIndex = VertexAttributeNew<7, glm::vec<BoneIndexCount, int>>;
+
+
+//auto GetTypeByIndex(const AttributeVariants& v)
+//{
+//	//if (v.index() == PositionAttribute::Idx) return PositionAttribute{};
+//	//if (v.index() == ColorAttribute::Idx) return ColorAttribute{};
+//
+//
+//}
+
+
+
+#define AttribTypes2 PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
+using AttributeVariants = std::variant<AttribTypes2>;
+
+template<  typename T >
+constexpr auto GetIndexType(const AttributeVariants& v)
+{
+	//constexpr size_t i = static_cast<size_t>(nullptr) + static_cast<size_t>(nullptr);
+	return std::get_if<T >(&v);
+}
+
+//template<typename T>
+struct VertexBuffer //: std::vector<T> 
+{
+	std::vector<AttributeVariants> VertexAttributes;
+	std::vector<std::byte> data;
+	
+	
+	
+
+
+	void Add(const AttributeVariants& a)
+	{
+		VertexAttributes.push_back(a);
+	}
+
+	auto TotalStride()
+	{
+		auto CallGenerate = [](auto& p) { return p.Stride(); };
+		size_t stride = 0;
+		for (auto& v : VertexAttributes) 
+		{
+			stride += std::visit(CallGenerate, v);
+		}
+		return stride;
+	}
+	void OffsetOf() {};
+};
+
+template<typename  T >
+constexpr auto GetIdxHelper(const AttributeVariants& var)
+{
+	if (auto  ptr = std::get_if<T>(&var))
+		return T::Idx;
+	else return size_t{ 0 };
+
+}
+
+
+
+template<typename... Ts>
+constexpr  auto GetIdxVariant(const AttributeVariants& var)
+{
+	//if (auto* ptr = std::get_if<Ts>(&var))
+	return (GetIdxHelper<Ts>(var) + ...); //index is 0 0 0 idx! 0 0 0 0 lol
+}
+
+constexpr auto GetIdx(const AttributeVariants& variant)
+{
+	return GetIdxVariant<AttribTypes2>(variant);
+}
+
+//template<typename...Ts>
+auto GetAttributeByIndex_impl(size_t i)
+{
+	//std::array<int, sizeof...(Ts)> arr{Ts::Idx...}
+	//(if (Ts::Idx == i) return Ts; ...);
+	//return  (Ts::Idx == i + ...);
+
+
+	
+}
+
+auto GetAttributeByIndex(size_t i)
+{
+	return GetAttributeByIndex_impl(i);
+}
+
+
+auto GetCurrentType(const AttributeVariants& variant)
+{
+	//auto val = 
+}
+
 
 
 void VulkanHPP::Prepare()
 {
 	{
-		constexpr auto sss12 = VertexAttributeNew<glm::vec3>::length();
-		constexpr auto wrap = VertexAttributeNew<glm::vec2 >(13, 21);
-		constexpr auto wraplen = wrap.length();
+		{
+			struct AC { int x; };
+			using t11123 = AC;
+			
+			struct AAA : AC {};
+			struct AAAA : AC {};
+			constexpr AttributeVariants attr1 = ColorAttribute(2, 1, 3);
+			constexpr AttributeVariants attr2 = PositionAttribute(2, 1, 3);
+			constexpr AttributeVariants attr3 = TexCoordAttribute(2, 1);
+			auto idxty1 = GetIndexType<ColorAttribute>(attr1);
+			auto idxty2 = GetIndexType<PositionAttribute>(attr1);
+			auto idxty3 = GetIndexType<TexCoordAttribute>(attr1);
+			constexpr auto id1at1 = GetIdx(attr1);
+			constexpr auto id1at2 = GetIdx(attr2);
+			constexpr auto id1at3 = GetIdx(attr3);
+			constexpr auto idvarxty1 = attr1.index();
+			constexpr auto idvarxty2 = attr2.index();
+			constexpr auto idvarxty3 = attr3.index();
+			VertexBuffer vb;
+			vb.Add(attr1);
+			vb.Add(attr2);
+			vb.Add(attr3);
+			auto strd = vb.TotalStride();
+			auto& vb1 = vb.VertexAttributes[0];
+			
+			constexpr std::variant <ColorAttribute, PositionAttribute> a = ColorAttribute(2, 1, 3);
+			std::variant<int, float> ac = int(3);
+		}
+
+
+		//constexpr auto sss12 = VertexAttributeNew<glm::vec3>::length();
+		//constexpr auto wrap = VertexAttributeNew<glm::vec2 >(13, 21);
+		//constexpr auto wraplen = wrap.length();
 		//decltype(wrap)::value_type
 		//constexpr auto valtype = wrap.ValueType();
-		constexpr auto x1 = wrap.x;
-		constexpr auto y1 = wrap.y;
+		//constexpr auto x1 = wrap.x;
+		//constexpr auto y1 = wrap.y;
 		{
-			constexpr VertexAttributeNew<glm::ivec3> attV{};
-			constexpr auto a1 = attV.Stride();
-			constexpr auto a2 = attV.Length();
-			constexpr auto a3 = attV.GetFormat();
+			//constexpr VertexAttributeNew<glm::ivec3> attV{};
+			//constexpr auto a1 = attV.Stride();
+			//constexpr auto a2 = attV.Length();
+			//constexpr auto a3 = attV.GetFormat();
 		}
 
 
@@ -897,8 +1008,9 @@ void VulkanHPP::Prepare()
 	int i3 = da.GetIndex<glm::vec3>();
 	int i4 = da.GetIndex<glm::vec4>();
 
-	VertexBuffer<VertexAttributeNew<glm::vec4>> vbuffer;
-	const   auto asdas = vbuffer.TotalStride();
+	//VertexBuffer<VertexAttributeNew<glm::vec4>> vbuffer;
+
+	//const   auto asdas = vbuffer.TotalStride();
 
 	//glm::vec<_> asda;
 
