@@ -156,125 +156,24 @@ Mesh triMesh = Mesh(
 	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
 	}, { 0, 1, 2 });
 
-template <typename T>
-concept vec = requires(T v)
-{
-	{v.length()} -> std::convertible_to<int>;
+template<auto N>
+struct TestExtraction {
+
 };
-
-
-template<typename T>
-requires vec<T>
-static constexpr int GetElemSize()
-{
-	return T::length();
-	//if constexpr (std::is_same<T, glm::vec1>::value) return 1;
-	//if constexpr (std::is_same<T, glm::vec2>::value) return 2;
-	//if constexpr (std::is_same<T, glm::vec3>::value) return 3;
-	//if constexpr (std::is_same<T, glm::vec4>::value) return 4;
-	//if constexpr (std::is_same<T,   glm::vec2>) return 2;
-	//if constexpr (std::is_same<T,   glm::vec3>) return 2;
-	//if constexpr (std::is_same<T,   glm::vec4>) return 2;
-	//glm::vec2 testVec{ 1,2 };
-	//if constexpr (std::is_same_v(T, T)) return 2;
-	return 1;
-
-}
-
-enum class attribEnum
-{
-	Scalar,
-	Vec2,
-	Vec3,
-	Vec4
-};
-
-//template<typename T>
-//using vector = >  
-//template <typename T, int n, glm::qualifier q,   glm::vec<n, T, q> Types...>
-
-
-//only supports 32bit types
-enum class VertexAttrib
-{
-	Scalar,
-	Position3,
-	Color0,
-	Color1,
-	Color2,
-	Color3,
-	Color4,
-	Color5,
-	Color6,
-	Color7,
-	TexCoord1,
-	TexCoord2,
-	BoneIndex,
-	BoneWeight,
-	Normal,
-	Tangent,
-	Bitangent
-};
-
-
-
-template<typename T>
-static constexpr int IsValid() {
-	if constexpr (std::is_same<T, glm::vec1>::value) return 0;
-	if constexpr (std::is_same<T, glm::vec2>::value) return 1;
-	if constexpr (std::is_same<T, glm::vec3>::value) return 1;
-	if constexpr (std::is_same<T, glm::vec4>::value) return 0;
-	return 0;
-}
-
-template<typename T>
-static constexpr VertexAttrib AttributeToType()
-{
-	if constexpr (std::is_same<T, glm::vec1>::value) return VertexAttrib::Scalar;
-	//else if constexpr (std::is_same<T, glm::vec2>::value) return VertexAttrib::Float2;
-	else if constexpr (std::is_same<T, glm::vec3>::value) return VertexAttrib::Position3;
-	//else if constexpr (std::is_same<T, glm::vec4>::value) return VertexAttrib::Position4;
-	else return VertexAttrib::Scalar;
-
-}
-static const std::unordered_map<VertexAttrib, bool> AttribLUT
-{
-	{VertexAttrib::Scalar,		true},
-	//{VertexAttrib::Float2,		true},
-	{VertexAttrib::Position3,	true},
-	//{VertexAttrib::Position4,	false},
-	//{VertexAttrib::Color,		false},
-	{VertexAttrib::TexCoord1,	false},
-	{VertexAttrib::TexCoord2,	true},
-	{VertexAttrib::BoneIndex,	false},
-	{VertexAttrib::BoneWeight,	false},
-	{VertexAttrib::Normal,		true},
-	{VertexAttrib::Tangent,		false},
-	{VertexAttrib::Bitangent,	true}
-};
-
-//std::array<  VertexAttrib, 12> boolArr{ true, true, true, false,false,false, true,false, true,
-
-
-template<typename T>
-static constexpr bool IsValidAttrib()
-{
-	//if constexpr (std::is_same <T, float>::value) return true; return false;
-	return AttribLUT[T];
-}
-template<bool arg_N>
+template<auto arg_N>
 struct val {
 	static constexpr auto N = arg_N;
 };
 
-template<template <bool> typename T, bool N>
+template<template <auto> typename T, auto N>
 constexpr auto extract(const T<N>&)->val<N>;
 
 template<typename T>
 constexpr auto extract_N = decltype(extract(std::declval<T>()))::N;
 
+constexpr auto ffsd = extract_N<TestExtraction<5>>;
 
-template<typename...Ts>
+	template<typename...Ts>
 using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
 
 template<typename...Ts>
@@ -288,156 +187,14 @@ using remove_t = tuple_cat_t<
 	>::type...
 >;
 
-template<typename T, typename ...Ts>
-struct Recurse
-{
-	//	std::pair <T, Recurse<Ts, Ts...>> val;
-};
-
-//reverse?
-//template<typename T>
-//static constexpr VertexAttrib ConvertToAttrib()
-//{
-//	if constexpr (std::is_same<T, glm::vec1>::value) return VertexAttrib::Scalar;
-//	if constexpr (std::is_same<T, glm::vec2>::value) return VertexAttrib::Scalar;
-//	if constexpr (std::is_same<T, glm::vec3>::value) return VertexAttrib::Scalar;
-//	if constexpr (std::is_same<T, glm::vec4>::value) return VertexAttrib::Scalar;
-//}
-
-//struct A1
-//{
-//	int i1;
-//};
-//
-//struct A2
-//{
-//	A1 a1;
-//	float j2;
-//};
-
-//template<typename T>
-//struct VertexConcept
-//{
-//	T MyAttribute;
-//};
-//
-//template<typename T, typename U>
-//struct VertexConcept
-//{
-//	T MyAttribute;
-//	VertexConcept<U> Rest;
-//
-//	//static const size_t stride = (sizeof(T) + Rest.stride);
-//};
+ 
 template <class T, template <class> class OtherType>
 class Nest
 {
 	OtherType<T> f;
 
 };
-//template<typename... Ts>
-//struct Values {
-//	template<Ts... Vs>
-//	struct Holder {
-//		static std::tuple<Ts...> vals;
-//	};
-//	//static constexpr size_t size() { return sizeof(Holder<Vs >::vals); }
-//};
-//
-//const auto t1 = glm::vec2{ 1,1 };
-//const auto t2 = glm::vec3{ 3,3,3 };
-//constexpr int sizzzz = sizeof(Values<glm::vec2, glm::vec3>::Holder < glm::vec2{ 1,1 }, glm::vec3{ 3,3,3 } > ::vals);
-//constexpr size_t s2 = Values<glm::vec2, glm::vec3>::size();
-
-
-struct VertexAttribute
-{
-
-
-};
-
-template<typename T>
-size_t GetStrideImpl()
-{
-
-}
-
-template<typename T>
-size_t GetStride()
-{
-	return T::length() * sizeof(T::type);
-}
-
-
-template<typename T>
-size_t GetStride(T)
-{
-	return T::length() * sizeof(T::type);
-}
-
-
-struct TexCoord_Attribute
-{
-	TexCoord_Attribute(float    x, float    y) : val{ x,y } {}
-	TexCoord_Attribute() : val{ 0,0 } {}
-	//glm::vec2 val;
-	glm::vec2 val;
-	vk::Format format{ vk::Format::eR32G32Sfloat };
-
-	size_t Stride() { return val.length() * sizeof(decltype(val)); }
-};
-
-struct Position2_Attribute
-{
-	Position2_Attribute(float x, float y) : val{ x,y } {};
-	glm::vec2 val;
-};
-
-struct Position_Attribute
-{
-	Position_Attribute(float x, float y, float z) : val{ x,y,z } {};
-	Position_Attribute() : val{ 0,0,0 } {};
-	glm::vec3 val;
-};
-
-//format{ vk::Format::eR32G32Sfloat };
-
-using T = std::variant< TexCoord_Attribute, Position2_Attribute, Position_Attribute>;
-
-static constexpr vk::Format GetFormat(const  T& att)
-{
-	//constexpr size_t i = att.index();
-	if (std::get_if<TexCoord_Attribute>(&att))  return vk::Format::eR32G32B32Sfloat;
-	if (std::get_if<Position_Attribute>(&att))  return vk::Format::eR32G32B32Sfloat;
-	if (std::get_if<Position2_Attribute>(&att)) return vk::Format::eR32G32Sfloat;
-
-	assert(false);
-	return vk::Format::eUndefined;
-}
-
-
-//N=number of colors (max 8), L is color lenght (vec3/4), T is type (float, int, etc)
-template<int N, int L, typename T, glm::qualifier qual = glm::qualifier::defaultp>
-struct VertexAttrib_Color
-{
-	std::array<glm::vec<L, T, qual>, N> val;
-};
-
-template<typename L, typename T  > struct outer
-{
-
-	//template< glm::vec<L, T,  glm::qualifier::defaultp> V>
-	template< typename V >
-	struct VecH
-	{
-		static const V  ghiu{};
-		//func()
-		//{
-		//	return glm::vec<L, T>;
-		//}
-	};
-};
-
+   
 //auto y = glm::dvec2::y;
 
 template<typename V, typename T>
@@ -448,79 +205,13 @@ static constexpr auto ExtractT(T i)
 	return static_cast<V::value_type>(i);
 }
 
-template<typename V>
-static constexpr auto ExtractL()
-{
-	return V::length_type;//a = 12.5f;;
-	//auto a = float;
-	//return V::length;
-}
 
-
-
-
-//template< typename  ...Ts>
-//struct VertexConcept
-//{
-//	//Ts... var;
-//	//static VertexAttrib MyAttribute;
-//	//static const std::array<VertexAttrib, sizeof...(Ts)> attribs{  };
-//	//static const size_t stride = (sizeof(Ts[0]) + ...)
-//	//static const size_t stride = (sizeof(T) + Rest.stride);
-//};
-
-
-
-template <typename... Ts>
-struct Attribs
-{
-	//static constexpr std::tuple<VertexAttrib...> types { AttributeToType<Ts>() ... };
-	static const remove_t<Ts...> types;// { AttributeToType<Ts>() ... };
-	//Attribs() = default;
-};
-
-template <template <bool Boo> class Tee>
-static constexpr auto EnableCheck()
-{
-	//using T = Tee<Boo>;
-	return Tee;
-};
-
-template<bool b>
-struct lolmao
-{
-	//typedef b type;
-	//static constexpr bool enabled(){ return b; }
-};
-//lolmao<false>::type fasdas = true;
-//constexpr auto asdsadasdsa = EnableCheck<lolmao<false>> ();
-
-
-//struct enabledStruct
-//{
-//	template<bool b>
-//	static const bool enabled() { return b; }
-//};
-
-//static_assert(std::is_same<
-//							remove_t<lolmao<true>, lolmao<false>>, 
-//							std::tuple<lolmao<true>>>::value, "ayy");
-
-
-template<typename T>
-size_t MAX() { return sizeof(T); }
-template<typename T, typename U>
-size_t MAX() { std::max(sizeof(T), sizeof(U)); };
-
-template<typename T, typename ... Ts>
-size_t MAX() { MAX(T, Ts...); }
 
 
 
 //std::enable_if_t<std::is_integral<Integer>::value, bool> = true
 template <typename... Types>
-//typename = std::enable_if_t<true, bool> = true> 
-struct VertexData
+struct VertexDataOld
 {
 	//using Converted... = AttributeToType(Types)... ;
 	//static const  Attribs<Types...> attribs;
@@ -528,7 +219,7 @@ struct VertexData
 	static constexpr std::array<int, count> byteSizes{ sizeof(Types)... };
 	static constexpr std::array<int, count> componentLenghts{ Types::length()... };
 
-	static const inline std::array<VertexAttrib, count> Attributes{ AttributeToType<Types>()... };
+	//static const inline std::array<VertexAttrib, count> Attributes{ AttributeToType<Types>()... };
 	//static const inline std::array<int, count> typeIndices = { std::index_sequence<Types...>() };
 	// static constexpr std::array<int, sizeof...(Types)> typeIndices = std::array{Types...};
 
@@ -546,26 +237,11 @@ struct VertexData
 	};
 	static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
 	static constexpr int stride = (sizeof(Types) + ...);
-	static constexpr std::array< VertexAttrib, count> types = { AttributeToType<Types>() ... };
+	//static constexpr std::array< VertexAttrib, count> types = { AttributeToType<Types>() ... };
 	//static const size_t maxzzz = MAX(Types,...); //std::max( std::max(sizeof(Types)...));
-
-
-
 
 	static constexpr size_t validCount = (IsValid<Types>() + ...);
 	//static std::vector<int> as; //= { if constexpr (IsValid<Types>()) { IsValid<Types>() }   ... };
-
-
-	//static std::vector<int> construct()
-	//{
-	//	static std::vector<int> vec{};  
-	//	if constexpr (IsValid<Types...>())
-	//		vec.emplace_back(IsValid<Types...>());
-	//
-	//	static_assert(vec.size() == validCount);
-	//	return vec;
-	//}
-	//static const inline std::vector<int> as = construct();
 
 	template<typename T>
 	static const T GetMeme(int i)
@@ -579,154 +255,19 @@ struct VertexData
 		return  lookup.at(std::type_index{ typeid(T) });
 	}
 	operator std::string() const { return std::to_string(stride); }
-	//
-	//template<typename T>
-	//private static constexpr AddToMap(T key)
-	//{
-	//	std::type_index
-	//}
-
-
-	//		template<typename T>
-//	static constexpr T Get() { return }
-	//static constexpr std::vector<int> = std::iota<5>;
 };
 
 
-template<bool b>
-struct Toggle
-{
-	static const bool on{ b };
-};
-
-template<bool b>
-struct A { static constexpr bool enabled() { return b; } };
-template<bool b>
-struct B { static constexpr bool enabled() { return b; } };
-template<bool b>
-struct C { static constexpr bool enabled() { return b; } };
-
-template<typename ...Ts>
-static constexpr auto Func22()
-{
-	using T = remove_t<Ts...>;
-	//return //std::tuple<decltype(T)>)T{};
-	//static_assert (std::is_same< T, std::tuple<B<true>>>::value, "asd");
-	return T{};
-
-}
-
-
-//static_assert (std::is_same< fffff, std::tuple<B<true>>>::value, "asd");
-int aaaaaaaaaaaaaaaaa = 1;
-//A<false> f;
-//template<class T, template<typename...> class  C> //I want <B> to be replaced by <b> and <T> by <A> 
-//static const bool Func()
-//{
-//	return T;
-//}
-
-//auto jjj = Func<  A<false > >();
+ 
 
 
 
 template<typename T>
-std::ostream& operator<<(std::ostream& Str, VertexData<T> const& v) {
-	// print something from v to str, e.g: Str << v.getX();
-	std::string asds = "asdasd";
-	return asds;
-}
-
-std::unordered_map<std::type_index, int> mymap = {
-	{std::type_index{typeid(float)}, 3 },
-	{std::type_index{typeid(int)}, 2 },
-	{std::type_index{typeid(char)}, 1 }
-
-};
-
-//struct Banana
-//{
-//	void* ptr;
-//	void func()
-//	{
-//		ptr = this;
-//	}
-//	void func2()
-//	{
-//		auto lambda = [&](int i) {fmt::print("{}", i); });
-//		auto v = VertexData<glm::vec2>{};
-//		//ptr = reinterpret_cast<void*>(&v);
-//		//((decltype(lambda))ptr)(2);
-//		//ptr = void Hello(int i){ fmt::print("{}", i); }
-//	}
-//};
-
-
-
-template<typename T>
-int GetIndex()
-{
-	return mymap[std::type_index{ typeid(T) }];
-}
-
-//template<bool ...B>
-//struct VertexEnum
-//{
-//
-//	static constexpr std::array<VertexAttrib, sizeof...(V)> arr = { B... };
-//	static constexpr std::unordered_set<VertexAttrib> set = {}
-//};
-
-//template<typename... A, typename... B>
-//void f(B...) { }
-template <typename T1, typename... T2>
-constexpr bool check_for_type(const std::tuple<T2...>&) {
-	return std::disjunction_v<std::is_same<T1, T2>...>;
-}
-
-
-
-
-
-const bool GetBool(int i)
-{
-	return i < 10 ? true : false;
-}
-
-template <typename T>
-struct VertexHelper
-{
-	static const auto length = T::length();
-	static const auto typeSize = sizeof(T::value_type);
-	static const auto stride = typeSize * length;
-};
-
-bool fff = true;
-
-template<class V>
-std::type_info const& var_type(V const& v) {
-	return std::visit([](auto&& x)->decltype(auto) { return typeid(x); }, v);
-}
-
-#define AttribTypes  TexCoord_Attribute, Position2_Attribute, Position_Attribute 
-#define AttributeVariant std::variant<AttribTypes> 
-
-template< typename T >
-bool fea(AttributeVariant& var) { return std::get_if<T>(&var); }
-
-
-template<typename ...Ts>
-bool Iterate(AttributeVariant& var)
-{
-	//return (std::get_if<Ts>(var) || ...);
-	return (std::get_if<Ts>(&var) || ...);
-}
-
-template<size_t I, typename T  >
 struct VertexAttributeNew : T //todo: add normalization?
 {
 	using T::T; //inherit constructor
-	static constexpr size_t Idx = I;
+
+	static constexpr size_t Idx = 1;
 	static constexpr size_t Stride() { return T::length() * sizeof(T::value_type); }
 	static constexpr size_t Length() { return T::length(); }
 	static constexpr vk::Format GetFormat()
@@ -748,32 +289,22 @@ struct VertexAttributeNew : T //todo: add normalization?
 	}
 };
 
+#define INHERIT_ using VertexAttributeNew :: VertexAttributeNew;
 //make bone weights static
 static constexpr int BoneIndexCount = 3;
-using PositionAttribute = VertexAttributeNew<0, glm::vec3>;
-using ColorAttribute = VertexAttributeNew<1, glm::vec3>;
-using TexCoordAttribute = VertexAttributeNew<2, glm::vec2>;
-using BitangentAttribute = VertexAttributeNew<3, glm::vec3>;
-using TangentAttribute = VertexAttributeNew<4, glm::vec3>;
-using NormalAttribute = VertexAttributeNew<5, glm::vec3>;
-using BoneWeight = VertexAttributeNew<6, glm::vec<BoneIndexCount, float>>;
-using BoneIndex = VertexAttributeNew<7, glm::vec<BoneIndexCount, int>>;
-
-
-//auto GetTypeByIndex(const AttributeVariants& v)
-//{
-//	//if (v.index() == PositionAttribute::Idx) return PositionAttribute{};
-//	//if (v.index() == ColorAttribute::Idx) return ColorAttribute{};
-//
-//
-//}
-
-
+struct PositionAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
+struct ColorAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
+struct TexCoordAttribute : VertexAttributeNew<glm::vec2> { INHERIT_ };
+struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
+struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
+struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
+struct BoneWeight : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_ };
+struct BoneIndex : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_ };
 
 #define AttribTypes2 PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
 using AttributeVariants = std::variant<AttribTypes2>;
 
-template<  typename T >
+template<typename T>
 constexpr auto GetIndexType(const AttributeVariants& v)
 {
 	//constexpr size_t i = static_cast<size_t>(nullptr) + static_cast<size_t>(nullptr);
@@ -785,9 +316,9 @@ struct VertexBuffer //: std::vector<T>
 {
 	std::vector<AttributeVariants> VertexAttributes;
 	std::vector<std::byte> data;
-	
-	
-	
+
+
+
 
 
 	void Add(const AttributeVariants& a)
@@ -799,7 +330,7 @@ struct VertexBuffer //: std::vector<T>
 	{
 		auto CallGenerate = [](auto& p) { return p.Stride(); };
 		size_t stride = 0;
-		for (auto& v : VertexAttributes) 
+		for (auto& v : VertexAttributes)
 		{
 			stride += std::visit(CallGenerate, v);
 		}
@@ -808,264 +339,51 @@ struct VertexBuffer //: std::vector<T>
 	void OffsetOf() {};
 };
 
-template<typename  T >
-constexpr auto GetIdxHelper(const AttributeVariants& var)
-{
-	if (auto  ptr = std::get_if<T>(&var))
-		return T::Idx;
-	else return size_t{ 0 };
-
-}
 
 
-
-template<typename... Ts>
-constexpr  auto GetIdxVariant(const AttributeVariants& var)
-{
-	//if (auto* ptr = std::get_if<Ts>(&var))
-	return (GetIdxHelper<Ts>(var) + ...); //index is 0 0 0 idx! 0 0 0 0 lol
-}
-
-constexpr auto GetIdx(const AttributeVariants& variant)
-{
-	return GetIdxVariant<AttribTypes2>(variant);
-}
-
-//template<typename...Ts>
-auto GetAttributeByIndex_impl(size_t i)
-{
-	//std::array<int, sizeof...(Ts)> arr{Ts::Idx...}
-	//(if (Ts::Idx == i) return Ts; ...);
-	//return  (Ts::Idx == i + ...);
-
-
-	
-}
-
-auto GetAttributeByIndex(size_t i)
-{
-	return GetAttributeByIndex_impl(i);
-}
-
-
-auto GetCurrentType(const AttributeVariants& variant)
-{
-	//auto val = 
-}
 
 
 
 void VulkanHPP::Prepare()
 {
+
+
+	struct AC { int x; };
+	using t11123 = AC;
+
+	struct AAA : AC {};
+	struct AAAA : AC {};
+	AttributeVariants attr1 = ColorAttribute(2, 1, 3);
+	constexpr AttributeVariants attr2 = PositionAttribute(2, 1, 3);
+	AttributeVariants attr3 = TexCoordAttribute(2, 1);
+	auto idxty1 = GetIndexType<ColorAttribute>(attr1);
+	auto idxty2 = GetIndexType<PositionAttribute>(attr1);
+	auto idxty3 = GetIndexType<TexCoordAttribute>(attr1);
+
+	auto idvarxty1 = attr1.index();
+	auto idvarxty2 = attr2.index();
+	auto idvarxty3 = attr3.index();
+	VertexBuffer vb;
+	vb.Add(attr1);
+	vb.Add(attr2);
+	vb.Add(attr3);
+	auto strd = vb.TotalStride();
+	auto& vb1 = vb.VertexAttributes[0];
+
+	constexpr std::variant <ColorAttribute, PositionAttribute> a = ColorAttribute(2, 1, 3);
+	std::variant<int, uint32_t> ac = int(3);
+	auto lamby = [](auto& p)
 	{
-		{
-			struct AC { int x; };
-			using t11123 = AC;
-			
-			struct AAA : AC {};
-			struct AAAA : AC {};
-			constexpr AttributeVariants attr1 = ColorAttribute(2, 1, 3);
-			constexpr AttributeVariants attr2 = PositionAttribute(2, 1, 3);
-			constexpr AttributeVariants attr3 = TexCoordAttribute(2, 1);
-			auto idxty1 = GetIndexType<ColorAttribute>(attr1);
-			auto idxty2 = GetIndexType<PositionAttribute>(attr1);
-			auto idxty3 = GetIndexType<TexCoordAttribute>(attr1);
-			constexpr auto id1at1 = GetIdx(attr1);
-			constexpr auto id1at2 = GetIdx(attr2);
-			constexpr auto id1at3 = GetIdx(attr3);
-			constexpr auto idvarxty1 = attr1.index();
-			constexpr auto idvarxty2 = attr2.index();
-			constexpr auto idvarxty3 = attr3.index();
-			VertexBuffer vb;
-			vb.Add(attr1);
-			vb.Add(attr2);
-			vb.Add(attr3);
-			auto strd = vb.TotalStride();
-			auto& vb1 = vb.VertexAttributes[0];
-			
-			constexpr std::variant <ColorAttribute, PositionAttribute> a = ColorAttribute(2, 1, 3);
-			std::variant<int, float> ac = int(3);
-		}
+		return p.Stride();
+	};
+	auto fsdafas = std::visit(lamby, vb.VertexAttributes[0]);
 
-
-		//constexpr auto sss12 = VertexAttributeNew<glm::vec3>::length();
-		//constexpr auto wrap = VertexAttributeNew<glm::vec2 >(13, 21);
-		//constexpr auto wraplen = wrap.length();
-		//decltype(wrap)::value_type
-		//constexpr auto valtype = wrap.ValueType();
-		//constexpr auto x1 = wrap.x;
-		//constexpr auto y1 = wrap.y;
-		{
-			//constexpr VertexAttributeNew<glm::ivec3> attV{};
-			//constexpr auto a1 = attV.Stride();
-			//constexpr auto a2 = attV.Length();
-			//constexpr auto a3 = attV.GetFormat();
-		}
-
-
-		//using AttribTypes = TexCoord_Attribute, Position2_Attribute, Position_Attribute;
-		std::variant<AttribTypes> attribVariant;
-		std::vector<decltype(attribVariant)> attribVector;
-		attribVector.emplace_back(TexCoord_Attribute(1, 3));
-		attribVector.emplace_back(Position_Attribute(1, 3, 5));
-		attribVector.emplace_back(Position2_Attribute(8, 3));
-		attribVariant.emplace<TexCoord_Attribute>(0.5f, 0.1f);
-		const auto idx = attribVariant.index();
-		auto currVar = std::get<0>(attribVariant);
-
-		bool hasComponent1 = Iterate<TexCoord_Attribute, Position2_Attribute>(attribVector[0]);
-		bool hasComponent2 = fea<Position_Attribute>(attribVector[0]);
-		//bool hasComponent2 = std::get_if<TexCoord_Attribute>(&attribVector[0]);
-		//bool hasComponent = std::get_if<TexCoord_Attribute>(&attribVector[0]);
-
-		//size_t  striderino1 = GetStride(currVar.val );
-		//size_t  striderino2 = GetStride< decltype(Position_Attribute.>(  );
-		//size_t  striderino3 = GetStride< Position2_Attribute>(  );
-		//for (int i = 0; i < 3; i++)
-		//{
-		//	const auto ptr = std::get_if<i>(attribVariant);
-		//}
-		auto format = GetFormat(attribVector[0]);
-		auto format1 = GetFormat(attribVector[1]);
-		auto format2 = GetFormat(attribVector[2]);
-
-	}
-	//attribVariant = TexCoord_Attrib(0.5f, 0.1f);
-
-	//VertexAttrib_Position
-	VertexHelper<glm::vec2> aaaa;
-	constexpr auto x312 = aaaa.length;
-	constexpr auto xasd = aaaa.typeSize;
-	constexpr auto zxx = aaaa.stride;
-
-
-	const bool bb = GetBool(432);
-	constexpr auto extraction = extract_N<A<false> >;
-	const bool falal = fff;
-	{
-		//using T1 = A< adasd ? false : true >{};
-		auto T1 = A<true>{};
-		auto T2 = A<false>{};
-
-		auto z = std::variant<A<true>, A<false>>{};// T1: T2;
-		//z.emplace<A<false>>(  );
-		std::any zxzc;
-		//bb ? std::get<A<false>>(z) : std::get<A<true>>(z);
-		constexpr auto jej = Func22< B<false>, B<false>, C<true>>();
-
-		constexpr int tupsize = std::tuple_size_v<decltype(jej)>;
-		std::tuple<int, char, double> mytuple(10, 'a', 3.14);
-		constexpr int tupsiz2e = std::tuple_size_v<decltype(mytuple)>;
-		constexpr auto hastype1 = check_for_type < A<true> >(jej);
-		constexpr auto hastype2 = check_for_type < C<true> >(jej);
-		constexpr auto hastype3 = check_for_type < B<false> >(jej);
-
-
-		auto xx = std::get< 0 >(jej);
-		// auto aex = std::get< 1>(jej);
-		int j = 121;
-
-	}
+	constexpr auto jaja = ExtractT<glm::ivec3>(5);
+	//ExtractL<glm::vec3>(); b;
+	const glm::vec3::value_type b = 12.5;
 
 
 
-	{
-		constexpr auto jaja = ExtractT<glm::ivec3>(MAXULONG_PTR);
-		//ExtractL<glm::vec3>(); b;
-		const glm::vec3::value_type b = 12.5;
-
-		//VertexConcept<glm::vec2, glm::vec3> v1{};
-		//auto m1 = v1.MyAttribute;
-		//auto c1 = v1.Rest;
-		//auto m2 = c1.MyAttribute;
-		//constexpr int size = sizeof(v1);
-		//auto vvvvv = Vertex<VertexAttrib::Position3, VertexAttrib::Color>()
-	}
-	//VertexEnum<true, true, false, true> vert{};
-	//auto as = vert.arr;
-	//constexpr int szz = sizeof(vert);
-	//std::tuple< VertexAttrib, VertexAttrib::Color> as;
-	//std::tuple<int, int, int, int> as = remove_t<int, int, int, float, int>{};
-
-	//static_assert( std::is_same<
-	//	remove_t<int, int, char, int, float, int>,
-	//	std::tuple<char, float>
-	//>::value, "Oops");
-	bool p1 = true;
-
-	std::tuple < VertexAttrib, VertexAttrib> asdsa;
-
-	int zz = GetIndex<float>();
-
-	a.impl.D();
-	b.impl.D();
-	const VertexData<glm::vec1, glm::vec2, glm::vec3, glm::vec4> da;
-	std::cout << (std::string)da;
-	constexpr auto types = da.types;
-	constexpr int vald = da.validCount;
-	int i1 = da.GetIndex<glm::vec1>();
-	int i2 = da.GetIndex<glm::vec2>();
-	int i3 = da.GetIndex<glm::vec3>();
-	int i4 = da.GetIndex<glm::vec4>();
-
-	//VertexBuffer<VertexAttributeNew<glm::vec4>> vbuffer;
-
-	//const   auto asdas = vbuffer.TotalStride();
-
-	//glm::vec<_> asda;
-
-	//auto asd = remove_t<char, float>{};
-	//auto asd = remove_t<VertexAttrib::Scalar, VertexAttrib::Position3>{};
-
-	constexpr int size = sizeof(da);
-	constexpr int size1 = da.count;
-	constexpr auto bytes = da.byteSizes;
-	constexpr auto stride = da.stride;
-	constexpr auto componentSizes = da.componentLenghts;
-	const auto maoapap = da.lookup;
-	using byteArena = std::array<std::byte, sizeof(int)>;
-	union
-	{
-		int val;
-		byteArena val2;
-	}unionLmao;
-
-	unionLmao.val = 5;
-	auto& arena2 = unionLmao.val2;
-	for (auto b : arena2)
-		std::cout << std::to_integer<int>(b);
-	int ayayaya = 198;
-
-	const std::byte* p = reinterpret_cast<std::byte*>(&ayayaya);
-	constexpr size_t sz = sizeof(decltype(ayayaya));
-	for (std::size_t i = 0; i != sz; ++i)
-	{
-		std::printf("\nThe byte #%zu is 0x%02X", i, p[i]);
-	}
-
-	std::variant<int, byteArena>   lmao = 5;
-	//lmao = 5;
-	//lmao.emplace<byteArena>(5);
-//	 auto& arr = std::get<byteArena>(lmao);
-
-	//for (std::byte b : arr)
-	//	std::cout << std::to_integer<int>(b);
-
-
-	std::variant<int, float> aaa;
-	std::vector<Holder<std::variant<ImplA, ImplB>  >> asa;
-	std::any aa = int{ 12 };
-	fmt::print("type1: {}", aa.type().name());
-
-	const std::any b = 14.4;
-	const auto aaaasdas = b.type().name();
-
-	aa.emplace<float>(5);
-	fmt::print("type2: {}", aa.type().name());
-
-
-
-	//	aa.emplace(std::vector<)
 
 	LoadModel();
 	InitLogger();
