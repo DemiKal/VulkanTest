@@ -173,7 +173,7 @@ constexpr auto extract_N = decltype(extract(std::declval<T>()))::N;
 
 constexpr auto ffsd = extract_N<TestExtraction<5>>;
 
-	template<typename...Ts>
+template<typename...Ts>
 using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
 
 template<typename...Ts>
@@ -187,29 +187,15 @@ using remove_t = tuple_cat_t<
 	>::type...
 >;
 
- 
+
 template <class T, template <class> class OtherType>
 class Nest
 {
 	OtherType<T> f;
 
 };
-   
-//auto y = glm::dvec2::y;
-
-template<typename V, typename T>
-static constexpr auto ExtractT(T i)
-{
-	//auto a = glm::vec2::value_type;//a = 12.5f;;
-	//auto a = float;
-	return static_cast<V::value_type>(i);
-}
 
 
-
-
-
-//std::enable_if_t<std::is_integral<Integer>::value, bool> = true
 template <typename... Types>
 struct VertexDataOld
 {
@@ -257,11 +243,6 @@ struct VertexDataOld
 	operator std::string() const { return std::to_string(stride); }
 };
 
-
- 
-
-
-
 template<typename T>
 struct VertexAttributeNew : T //todo: add normalization?
 {
@@ -301,32 +282,89 @@ struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
 struct BoneWeight : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_ };
 struct BoneIndex : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_ };
 
-#define AttribTypes2 PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
-using AttributeVariants = std::variant<AttribTypes2>;
+//no padding allowed!
+static_assert(sizeof(glm::vec1) == sizeof(VertexAttributeNew<glm::vec1>));
+static_assert(sizeof(glm::vec2) == sizeof(VertexAttributeNew<glm::vec2>));
+static_assert(sizeof(glm::vec3) == sizeof(VertexAttributeNew<glm::vec3>));
+static_assert(sizeof(glm::vec4) == sizeof(VertexAttributeNew<glm::vec4>));
+
+static_assert(sizeof(glm::ivec1) == sizeof(VertexAttributeNew<glm::ivec1>));
+static_assert(sizeof(glm::ivec2) == sizeof(VertexAttributeNew<glm::ivec2>));
+static_assert(sizeof(glm::ivec3) == sizeof(VertexAttributeNew<glm::ivec3>));
+static_assert(sizeof(glm::ivec4) == sizeof(VertexAttributeNew<glm::ivec4>));
+
+static_assert(sizeof(glm::dvec1) == sizeof(VertexAttributeNew<glm::dvec1>));
+static_assert(sizeof(glm::dvec2) == sizeof(VertexAttributeNew<glm::dvec2>));
+static_assert(sizeof(glm::dvec3) == sizeof(VertexAttributeNew<glm::dvec3>));
+static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
+
+static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
+static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
+
+
+#define AttributeTypes  PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
+using AttributeVariant = std::variant<AttributeTypes>;
 
 template<typename T>
-constexpr auto GetIndexType(const AttributeVariants& v)
+constexpr auto GetIndexType(const AttributeVariant& v)
 {
 	//constexpr size_t i = static_cast<size_t>(nullptr) + static_cast<size_t>(nullptr);
-	return std::get_if<T >(&v);
+	return std::get_if<T>(&v);
 }
 
 //template<typename T>
-struct VertexBuffer //: std::vector<T> 
+struct VertexBuffer //: private std::vector<std::byte>
 {
-	std::vector<AttributeVariants> VertexAttributes;
+	std::vector<AttributeVariant> VertexAttributes;
 	std::vector<std::byte> data;
 
-
-
-
-
-	void Add(const AttributeVariants& a)
+	void AddAttribute(const AttributeVariant& a)
 	{
 		VertexAttributes.push_back(a);
 	}
 
-	auto TotalStride()
+	template<typename T>
+	void AddElement(const T&& elem)
+	{
+		auto byteSize = sizeof(T);
+		std::array < std::byte, T::Stride()> arr;
+		T* ptr = reinterpret_cast<T*>(&arr);
+		*ptr = elem;
+
+		 data.insert(data.end(), std::begin(arr), std::end(arr));
+
+	}
+
+	//always check for nullptr!
+	template<typename T>
+	T* GetAttribute(size_t idx)
+	{
+		auto vertexStride = TotalStride();
+		auto capacity = data.size() / vertexStride;
+		if (idx > capacity) return nullptr;
+		std::byte* ptr = nullptr;
+		const auto totalStride = idx * vertexStride;
+
+		size_t offset = 0; //build up offset as you traverse
+		auto lambda = [&](auto& variant) { return variant.Stride(); };
+		for (const auto& v : VertexAttributes)
+		{
+			const T* castPtr = std::get_if<T>(&v);
+
+			if (castPtr)
+			{
+				//ptr = castPtr + castPtr.Stride();
+
+				return reinterpret_cast<T*>(data.data() + totalStride + offset);
+			}
+
+			offset += std::visit(lambda, v);
+		}
+
+		return nullptr;
+	}
+
+	size_t TotalStride()
 	{
 		auto CallGenerate = [](auto& p) { return p.Stride(); };
 		size_t stride = 0;
@@ -337,53 +375,51 @@ struct VertexBuffer //: std::vector<T>
 		return stride;
 	}
 	void OffsetOf() {};
+private:
+	//std::byte& operator[](int index)
+	//{
+		//return this[index];
+		//
+		//auto o =std::byte{8};
+		//return o;
+	//}
 };
-
-
-
-
-
 
 void VulkanHPP::Prepare()
 {
-
-
-	struct AC { int x; };
-	using t11123 = AC;
-
-	struct AAA : AC {};
-	struct AAAA : AC {};
-	AttributeVariants attr1 = ColorAttribute(2, 1, 3);
-	constexpr AttributeVariants attr2 = PositionAttribute(2, 1, 3);
-	AttributeVariants attr3 = TexCoordAttribute(2, 1);
-	auto idxty1 = GetIndexType<ColorAttribute>(attr1);
-	auto idxty2 = GetIndexType<PositionAttribute>(attr1);
-	auto idxty3 = GetIndexType<TexCoordAttribute>(attr1);
-
-	auto idvarxty1 = attr1.index();
-	auto idvarxty2 = attr2.index();
-	auto idvarxty3 = attr3.index();
+	constexpr AttributeVariant  attr2 = PositionAttribute(2, 1, 3);
+	constexpr AttributeVariant  attr1 = ColorAttribute(2, 1, 3);
+	constexpr AttributeVariant  attr3 = TexCoordAttribute(2, 1);
 	VertexBuffer vb;
-	vb.Add(attr1);
-	vb.Add(attr2);
-	vb.Add(attr3);
+	
+	
+
+	vb.AddAttribute(BoneIndex(2, 1, 3));
+	vb.AddAttribute(PositionAttribute(2, 1, 3));
+
+	vb.AddElement(BoneIndex(55, 65, 75));
+
+	using T = PositionAttribute;
+	auto* ptr = vb.GetAttribute<T>(0);
+	if (ptr)
+	{
+		ptr->x = 112.0f;
+		ptr->y = 867.0f;
+		ptr->z = 991.0f;
+
+
+		auto* vvv = reinterpret_cast<T*>(ptr);
+
+		*vvv = T(100, 128, 256);;
+	}
+	auto* ptr2 = vb.GetAttribute<BoneIndex>(0);
+
+
+	//vb.emplace_back(attr1);
+	//vb.emplace_back(attr2);
+	//vb.emplace_back(attr3);
 	auto strd = vb.TotalStride();
 	auto& vb1 = vb.VertexAttributes[0];
-
-	constexpr std::variant <ColorAttribute, PositionAttribute> a = ColorAttribute(2, 1, 3);
-	std::variant<int, uint32_t> ac = int(3);
-	auto lamby = [](auto& p)
-	{
-		return p.Stride();
-	};
-	auto fsdafas = std::visit(lamby, vb.VertexAttributes[0]);
-
-	constexpr auto jaja = ExtractT<glm::ivec3>(5);
-	//ExtractL<glm::vec3>(); b;
-	const glm::vec3::value_type b = 12.5;
-
-
-
 
 	LoadModel();
 	InitLogger();
@@ -602,7 +638,7 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
 	context.debug_callback = context.instance.createDebugReportCallbackEXT(debug_report_create_info);
 #endif
-}
+	}
 
 void VulkanHPP::SelectPhysicalDeviceAndInstance(Context& context)
 {
