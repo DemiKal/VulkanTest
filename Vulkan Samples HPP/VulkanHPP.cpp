@@ -628,13 +628,24 @@ int aaaaaaaaaaaaaaaaa = 1;
 
 //auto jjj = Func<  A<false > >();
 
+
+
+
+
 template<typename T>
 struct VertexBuffer
 {
 	std::array<T, sizeof(T)> view;
 	std::vector<std::byte> data;
-	static constexpr int Stride() { return T::stride; }
+	constexpr auto TotalStride()
+	{
+		auto l = [](const T& a, const T& b) {a.Stride() + b.Stride(); };
+		return 0;
+		//return std::accumulate(std::begin(view), std::end(view),  l);
+		//std::transform(std::begin)
+	}
 };
+
 template<typename T>
 std::ostream& operator<<(std::ostream& Str, VertexData<T> const& v) {
 	// print something from v to str, e.g: Str << v.getX();
@@ -689,12 +700,6 @@ constexpr bool check_for_type(const std::tuple<T2...>&) {
 	return std::disjunction_v<std::is_same<T1, T2>...>;
 }
 
-template<bool N>
-struct biden
-{
-
-};
-//int extract 
 
 
 
@@ -734,31 +739,51 @@ bool Iterate(AttributeVariant& var)
 }
 
 template<typename T>
-struct VertexAttributeNew
+struct VertexAttributeNew : T //todo: add normalization?
 {
-	static const T val ;
-	constexpr  static size_t Stride() { return T::length() * sizeof(T::value_type); }
-	constexpr  static size_t Length() { return T::length(); }
-	constexpr  static  vk::Format GetFormat()
+	using T::T; //inherit constructor
+	constexpr static size_t Stride() { return T::length() * sizeof(T::value_type); }
+	constexpr static size_t Length() { return T::length(); }
+	constexpr static vk::Format GetFormat()
 	{
 		if constexpr (std::is_same_v<T, glm::vec1>) return  vk::Format::eR32Sfloat;
 		if constexpr (std::is_same_v<T, glm::vec2>) return  vk::Format::eR32G32Sfloat;
 		if constexpr (std::is_same_v<T, glm::vec3>) return  vk::Format::eR32G32B32Sfloat;
 		if constexpr (std::is_same_v<T, glm::vec4>) return  vk::Format::eR32G32B32A32Sfloat;
-		
+
 		if constexpr (std::is_same_v<T, glm::ivec1>) return  vk::Format::eR32Sint;
 		if constexpr (std::is_same_v<T, glm::ivec2>) return  vk::Format::eR32G32Sint;
 		if constexpr (std::is_same_v<T, glm::ivec3>) return  vk::Format::eR32G32B32Sint;
 		if constexpr (std::is_same_v<T, glm::ivec4>) return  vk::Format::eR32G32B32A32Sint;
+
+		if constexpr (std::is_same_v<T, glm::uvec1>) return  vk::Format::eR32Uint;
+		if constexpr (std::is_same_v<T, glm::uvec2>) return  vk::Format::eR32G32Uint;
+		if constexpr (std::is_same_v<T, glm::uvec3>) return  vk::Format::eR32G32B32Uint;
+		if constexpr (std::is_same_v<T, glm::uvec4>) return  vk::Format::eR32G32B32A32Uint;
 	}
 };
 
-
+//make bone weights static
+static constexpr int BoneIndexCount = 3; 
+using PositionAttribute = VertexAttributeNew<glm::vec3>;
+using TexCoordAttribute = VertexAttributeNew<glm::vec2>;
+using BitangentAttribute = VertexAttributeNew<glm::vec3>;
+using TangentAttribute = VertexAttributeNew<glm::vec3>;
+using NormalAttribute = VertexAttributeNew<glm::vec3>;
+using BoneWeight = VertexAttributeNew<glm::vec<BoneIndexCount, float>>;
+using BoneIndex = VertexAttributeNew<glm::vec<BoneIndexCount, int>>;
 
 
 void VulkanHPP::Prepare()
 {
 	{
+		constexpr auto sss12 = VertexAttributeNew<glm::vec3>::length();
+		constexpr auto wrap = VertexAttributeNew<glm::vec2 >(13, 21);
+		constexpr auto wraplen = wrap.length();
+		//decltype(wrap)::value_type
+		//constexpr auto valtype = wrap.ValueType();
+		constexpr auto x1 = wrap.x;
+		constexpr auto y1 = wrap.y;
 		{
 			constexpr VertexAttributeNew<glm::ivec3> attV{};
 			constexpr auto a1 = attV.Stride();
@@ -872,8 +897,8 @@ void VulkanHPP::Prepare()
 	int i3 = da.GetIndex<glm::vec3>();
 	int i4 = da.GetIndex<glm::vec4>();
 
-	VertexBuffer<VertexData<glm::vec4>> vbuffer;
-	constexpr int asdas = vbuffer.Stride();
+	VertexBuffer<VertexAttributeNew<glm::vec4>> vbuffer;
+	const   auto asdas = vbuffer.TotalStride();
 
 	//glm::vec<_> asda;
 
