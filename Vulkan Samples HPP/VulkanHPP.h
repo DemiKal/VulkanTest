@@ -1,7 +1,10 @@
 #pragma once
 #include "vulkanStructs.h"
+//#include "VertexBuffer.h"
 
 struct GLFWwindow;
+ 
+
 
 class VulkanHPP
 {

@@ -64,7 +64,18 @@ struct AllocatedBuffer {
 	VkBuffer _buffer;
 	VmaAllocation _allocation;
 };
+struct Mesh
+{
+	//AllocatedBuffer m_Buffer;
+	//std::vector<Vertex> vertexBuffer;
+	//std::vector<uint32_t> indexBuffer;
 
+	//Buffer<Vertex> vertexBuffer;
+	VertexBuffer indexBuffer;
+	VertexBuffer vertexBuffer;
+
+	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
+};
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void window_size_callback(GLFWwindow* window, int width, int height);
@@ -98,19 +109,7 @@ struct Buffer
 	Buffer(std::vector<T> buff) : bufferdata{ std::move(buff) } {}
 
 };
-struct Mesh
-{
-	//AllocatedBuffer m_Buffer;
-	//std::vector<Vertex> vertexBuffer;
-	//std::vector<uint32_t> indexBuffer;
 
-	//Buffer<Vertex> vertexBuffer;
-	Buffer<uint32_t> indexBuffer;
-
-	VertexBuffer vertexBuffer;
-	
-	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
-};
 
 
 
@@ -213,16 +212,47 @@ struct VertexDataOld
 
 void VulkanHPP::Prepare()
 {
+
+
 	constexpr AttributeVariant  attr2 = PositionAttribute(2, 1, 3);
 	constexpr AttributeVariant  attr1 = ColorAttribute(2, 1, 3);
 	constexpr AttributeVariant  attr3 = TexCoordAttribute(2, 1);
 	VertexBuffer vb;
-	 
-	vb.AddAttribute(BoneIndex(2, 1, 3));
-	vb.AddAttribute(PositionAttribute(2, 1, 3));
 
-	vb.AddElement(BoneIndex(1, 2, 3));
-	vb.AddElement(BoneIndex(4, 5, 6));
+	vb.AddAttribute(PositionAttribute{});
+	vb.AddAttribute(ColorAttribute{});
+	vb.Finalize();
+//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
+//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+
+	vb.AddElement(PositionAttribute	{ 1.0f, 1.0f, 0.0f }); 
+	vb.AddElement(ColorAttribute	{ 1.0f, 0.0f, 0.0f });
+	vb.AddElement(PositionAttribute	{ -1.0f, 1.0f, 0.0f });
+	vb.AddElement(ColorAttribute	{ 0.0f, 1.0f, 0.0f });
+	vb.AddElement(PositionAttribute	{ 0.0f, -1.0f, 0.0f });
+	vb.AddElement(ColorAttribute	{ 0.0f, 0.0f, 1.0f });
+	
+	vb.AddElement(BoneWeight{ 0.0f, 0.0f, 1.0f });
+
+	//vb.AddElement(BoneIndex(1, 2, 3));
+	//vb.AddElement(BoneIndex(4, 5, 6));
+	//interleave!
+	auto a1 = vb.GetAttribute<PositionAttribute>(0);
+	auto b1 = vb.GetAttribute<ColorAttribute>(0);
+	auto a2 = vb.GetAttribute<PositionAttribute>(1);
+	auto b2 = vb.GetAttribute<ColorAttribute>(1);
+	auto a3 = vb.GetAttribute<PositionAttribute>(2);
+	auto b3 = vb.GetAttribute<ColorAttribute>(2);
+	auto b4 = vb.GetAttribute<ColorAttribute>(3);
+
+	IndexBuffer ib;
+	ib.AddElement(Indices{ 0 , 1 , 2  });
+
+	triMesh.vertexBuffer = vb;
+	triMesh.indexBuffer = ib;
+
+
 
 	using T = BoneIndex;
 	auto* ptr = vb.GetAttribute<T>(0);
@@ -275,10 +305,11 @@ void VulkanHPP::InitAllocator(Context& context)
 	vmaCreateAllocator(&allocatorInfo, &m_Allocator);
 }
 
-template <typename T>
-void StageBuffer(Context& context, Buffer<T>& allocBuffer)
+//template <typename T>
+void StageBuffer(Context& context, VertexBuffer& allocBuffer)
 {
-	const size_t bufferSize = allocBuffer.bufferdata.size() * sizeof(T);
+	const size_t bufferSize = allocBuffer.GetBufferSize();
+
 	vk::BufferCreateInfo stagingBufferInfo({}, bufferSize, vk::BufferUsageFlagBits::eTransferSrc);
 	const VkBufferCreateInfo C_stagingBufferInfo = stagingBufferInfo;
 
@@ -292,7 +323,7 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 	void* data;
 	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
 
-	memcpy(data, allocBuffer.bufferdata.data(), allocBuffer.bufferdata.size() * sizeof(T));
+	memcpy(data, allocBuffer.buffer.data(), bufferSize);
 
 	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
 
@@ -306,8 +337,8 @@ void StageBuffer(Context& context, Buffer<T>& allocBuffer)
 	VkBufferCreateInfo vertexBufferInfo = vkBuffer_CI; //convert!
 	//let the VMA library know that this data should be gpu native	
 	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, &allocBuffer.vkBuffer, &allocBuffer.vmaAllocation, nullptr));
+	VkBuffer vkBuff = allocBuffer.vkBuffer;
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, reinterpret_cast<VkBuffer*>(&allocBuffer.vkBuffer), &allocBuffer.vmaAllocation, nullptr));
 
 
 	auto cmdBuffer_AI = vk::CommandBufferAllocateInfo{ context.m_UploadContext._commandPool, vk::CommandBufferLevel::ePrimary, 1 };
@@ -760,7 +791,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 	context.render_pass = context.device.createRenderPass(rp_info);
 }
 
-void VulkanHPP::InitPipeline(Context& context)
+void VulkanHPP::InitPipeline(Context& context   )
 {
 	// Create a blank pipeline layout.
 	// We are not binding any resources to the pipeline in this first sample.
@@ -774,10 +805,9 @@ void VulkanHPP::InitPipeline(Context& context)
 	};
 	vertexInput.setVertexBindingDescriptions({ (uint32_t)bindingDescriptions.size(), bindingDescriptions.data() });
 
-	std::vector<vk::VertexInputAttributeDescription>  attributeDescriptions = {
-		{ 0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos) },
-		{ 1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, col) },
-	};
+	auto attributeDescriptions = triMesh.vertexBuffer.GetVertexInputAttributeDescriptions();
+
+
 	vertexInput.setVertexAttributeDescriptions({ (uint32_t)attributeDescriptions.size(), attributeDescriptions.data() });
 
 
@@ -1018,7 +1048,8 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Draw three vertices with one instance.
 	//cmd.draw(3, 1, 0, 0);
-	cmd.drawIndexed(static_cast<uint32_t>(triMesh.indexBuffer.bufferdata.size()), 1, 0, 0, 0);
+	size_t indexCount = triMesh.indexBuffer.buffer.size() / 3;
+	cmd.drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
 
 	// Complete render pass.
 	cmd.endRenderPass();

@@ -3,6 +3,9 @@
 #include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
 #include <vector>
+#include <fmt/format.h>
+#include "vk_mem_alloc.h"
+
 
 template<typename T  >
 struct VertexAttributeNew : T  //todo: add normalization?
@@ -67,9 +70,9 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-
-#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
+#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, Indices,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
+
 
 template<typename T>
 constexpr auto GetIndexType(const AttributeVariant& v)
@@ -81,23 +84,47 @@ constexpr auto GetIndexType(const AttributeVariant& v)
 struct VertexBuffer //: private std::vector<std::byte>
 {
 	std::vector<AttributeVariant> VertexAttributes;
-	std::vector<std::byte> data;
+	std::vector<std::byte> buffer;
 	vk::Buffer vkBuffer;
+	VmaAllocation vmaAllocation;
+	bool m_IsFinalized = false;
 
 	void AddAttribute(const AttributeVariant& a)
 	{
+		if (m_IsFinalized) { fmt::print("Buffer is finalized!"); return; }
+
+
 		VertexAttributes.push_back(a);
 	}
+
+	void Finalize() { m_IsFinalized = true; }
+
+	//size in bytes
+	size_t GetBufferSize() { return buffer.size() * sizeof(std::byte); /*lol*/ }
 
 	template<typename T>
 	void AddElement(const T&& elem)
 	{
+
+		//todo check size!
+
+		bool hasType = false;
+		for (auto& var : VertexAttributes)
+			hasType |= static_cast<bool>(std::get_if<T>(&var));
+
+		if (!hasType)
+		{
+			fmt::print("ey get outta here man, declare an attribute type first");
+			return;
+		}
+
+
 		auto byteSize = sizeof(T);
 		std::array < std::byte, T::Stride()> arr;
 		T* ptr = reinterpret_cast<T*>(&arr);
 		*ptr = std::move(elem);
 
-		data.insert(data.end(), std::begin(arr), std::end(arr));
+		buffer.insert(buffer.end(), std::begin(arr), std::end(arr));
 
 	}
 
@@ -106,8 +133,8 @@ struct VertexBuffer //: private std::vector<std::byte>
 	T* GetAttribute(size_t idx)
 	{
 		auto vertexStride = TotalStride();
-		auto capacity = data.size() / vertexStride;
-		if (idx > capacity) return nullptr;
+		auto capacity = buffer.size() / vertexStride;
+		if (idx > capacity - 1) return nullptr;
 		std::byte* ptr = nullptr;
 		const auto totalStride = idx * vertexStride;
 
@@ -121,7 +148,7 @@ struct VertexBuffer //: private std::vector<std::byte>
 			{
 				//ptr = castPtr + castPtr.Stride();
 
-				return reinterpret_cast<T*>(data.data() + totalStride + offset);
+				return reinterpret_cast<T*>(buffer.data() + totalStride + offset);
 			}
 
 			offset += std::visit(lambda, v);
@@ -129,6 +156,16 @@ struct VertexBuffer //: private std::vector<std::byte>
 
 		return nullptr;
 	}
+
+	//VertexBuffer(AttributeVariant&& attr) : 
+	//	VertexAttributes{ std::move  (attr) },
+	//	vmaAllocation{}, 
+	//	vkBuffer{}, 
+	//	buffer{}  
+	//{}
+
+	VertexBuffer() = default;
+
 
 	size_t TotalStride()
 	{
@@ -141,6 +178,30 @@ struct VertexBuffer //: private std::vector<std::byte>
 		return stride;
 	}
 	void OffsetOf() {};
+
+	std::vector< vk::VertexInputAttributeDescription> GetVertexInputAttributeDescriptions(uint32_t binding = 0)
+	{
+		std::vector<vk::VertexInputAttributeDescription>  attributeDescriptions;
+		uint32_t offset = 0;
+		uint32_t location = 0;
+		auto format_lambda = [&](auto& variant) { return variant.GetFormat(); };
+		auto stride_lambda = [&](auto& variant) { return variant.Stride(); };
+
+		for (auto& variant : VertexAttributes)
+		{
+			const vk::Format format = std::visit(format_lambda, variant);
+			const auto stride = std::visit(stride_lambda, variant);
+
+			attributeDescriptions.emplace_back(location, binding, format, offset);
+			
+			offset += stride;
+			location++;
+		}
+
+		return attributeDescriptions;
+	}
+
+
 private:
 	//std::byte& operator[](int index)
 	//{
@@ -151,3 +212,15 @@ private:
 	//}
 };
 
+class IndexBuffer : public VertexBuffer
+{
+public:
+	IndexBuffer()
+	{
+		//VertexBuffer(Indices)
+		AddAttribute(Indices{});
+		Finalize();
+	}
+};
+
+// : VertexAttributes{ std::move(attr) } {}
