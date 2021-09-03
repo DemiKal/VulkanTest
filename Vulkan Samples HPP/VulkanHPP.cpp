@@ -14,8 +14,7 @@ __pragma(warning(push, 0))
 // #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
 #include "tiny_gltf.h"
 #define GLFW_INCLUDE_VULKAN
-#include <any>
-
+#include "vertexbuffer.h"
 //#define GLM_FORCE_CTOR_INIT
 //#include <glm/glm.hpp>
 
@@ -74,27 +73,11 @@ void window_size_callback(GLFWwindow* window, int width, int height);
 int LoadModel()
 {
 	std::string filename = "../Assets/DamagedHelmet.glb";
-	using namespace tinygltf;
+	//using namespace tinygltf;
 
-	Model model;
-	TinyGLTF loader;
-	std::string err;
-	std::string warn;
-	bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename);
-	//bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]); // for binary glTF(.glb)
+	tinygltf::Model model;
 
-	if (!warn.empty()) {
-		printf("Warn: %s\n", warn.c_str());
-	}
-
-	if (!err.empty()) {
-		printf("Err: %s\n", err.c_str());
-	}
-
-	if (!ret) {
-		printf("Failed to parse glTF\n");
-		return -1;
-	}
+	return 0;
 }
 
 struct Vertex {
@@ -102,27 +85,7 @@ struct Vertex {
 	float col[3];
 };
 
-
-struct ImplA
-{
-	int D() { return 3; }
-};
-struct ImplB
-{
-	int D() { return 6; }
-};
-
-template<typename T>
-struct Holder
-{
-	T impl;
-};
-
-Holder<ImplA> a;
-Holder<ImplB> b;
-
-
-
+  
 template<typename T>
 struct Buffer
 {
@@ -132,7 +95,7 @@ struct Buffer
 	VmaAllocation vmaAllocation;
 
 
-	Buffer(const std::vector<T>& buff) : bufferdata{ buff } {}
+	Buffer(std::vector<T> buff) : bufferdata{ std::move(buff) } {}
 
 };
 struct Mesh
@@ -141,20 +104,23 @@ struct Mesh
 	//std::vector<Vertex> vertexBuffer;
 	//std::vector<uint32_t> indexBuffer;
 
-	Buffer<Vertex> vertexBuffer;
+	//Buffer<Vertex> vertexBuffer;
 	Buffer<uint32_t> indexBuffer;
 
-	Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
+	VertexBuffer vertexBuffer;
+	
+	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
 
 
 
-Mesh triMesh = Mesh(
-	{
-	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
-	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
-	}, { 0, 1, 2 });
+static Mesh triMesh;
+//= Mesh(
+//	{
+//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
+//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+//	}, { 0, 1, 2 });
 
 template<auto N>
 struct TestExtraction {
@@ -191,8 +157,7 @@ using remove_t = tuple_cat_t<
 template <class T, template <class> class OtherType>
 class Nest
 {
-	OtherType<T> f;
-
+	OtherType<T> f; 
 };
 
 
@@ -238,152 +203,13 @@ struct VertexDataOld
 	template<typename T>
 	static  constexpr int GetIndex()
 	{
-		return  lookup.at(std::type_index{ typeid(T) });
+		return lookup.at(std::type_index{ typeid(T) });
 	}
 	operator std::string() const { return std::to_string(stride); }
 };
 
-template<typename T>
-struct VertexAttributeNew : T //todo: add normalization?
-{
-	using T::T; //inherit constructor
+ 
 
-	static constexpr size_t Idx = 1;
-	static constexpr size_t Stride() { return T::length() * sizeof(T::value_type); }
-	static constexpr size_t Length() { return T::length(); }
-	static constexpr vk::Format GetFormat()
-	{
-		if constexpr (std::is_same_v<T, glm::vec1>) return  vk::Format::eR32Sfloat;
-		if constexpr (std::is_same_v<T, glm::vec2>) return  vk::Format::eR32G32Sfloat;
-		if constexpr (std::is_same_v<T, glm::vec3>) return  vk::Format::eR32G32B32Sfloat;
-		if constexpr (std::is_same_v<T, glm::vec4>) return  vk::Format::eR32G32B32A32Sfloat;
-
-		if constexpr (std::is_same_v<T, glm::ivec1>) return  vk::Format::eR32Sint;
-		if constexpr (std::is_same_v<T, glm::ivec2>) return  vk::Format::eR32G32Sint;
-		if constexpr (std::is_same_v<T, glm::ivec3>) return  vk::Format::eR32G32B32Sint;
-		if constexpr (std::is_same_v<T, glm::ivec4>) return  vk::Format::eR32G32B32A32Sint;
-
-		if constexpr (std::is_same_v<T, glm::uvec1>) return  vk::Format::eR32Uint;
-		if constexpr (std::is_same_v<T, glm::uvec2>) return  vk::Format::eR32G32Uint;
-		if constexpr (std::is_same_v<T, glm::uvec3>) return  vk::Format::eR32G32B32Uint;
-		if constexpr (std::is_same_v<T, glm::uvec4>) return  vk::Format::eR32G32B32A32Uint;
-	}
-};
-
-#define INHERIT_ using VertexAttributeNew :: VertexAttributeNew;
-//make bone weights static
-static constexpr int BoneIndexCount = 3;
-struct PositionAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
-struct ColorAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
-struct TexCoordAttribute : VertexAttributeNew<glm::vec2> { INHERIT_ };
-struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
-struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
-struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_ };
-struct BoneWeight : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_ };
-struct BoneIndex : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_ };
-
-//no padding allowed!
-static_assert(sizeof(glm::vec1) == sizeof(VertexAttributeNew<glm::vec1>));
-static_assert(sizeof(glm::vec2) == sizeof(VertexAttributeNew<glm::vec2>));
-static_assert(sizeof(glm::vec3) == sizeof(VertexAttributeNew<glm::vec3>));
-static_assert(sizeof(glm::vec4) == sizeof(VertexAttributeNew<glm::vec4>));
-
-static_assert(sizeof(glm::ivec1) == sizeof(VertexAttributeNew<glm::ivec1>));
-static_assert(sizeof(glm::ivec2) == sizeof(VertexAttributeNew<glm::ivec2>));
-static_assert(sizeof(glm::ivec3) == sizeof(VertexAttributeNew<glm::ivec3>));
-static_assert(sizeof(glm::ivec4) == sizeof(VertexAttributeNew<glm::ivec4>));
-
-static_assert(sizeof(glm::dvec1) == sizeof(VertexAttributeNew<glm::dvec1>));
-static_assert(sizeof(glm::dvec2) == sizeof(VertexAttributeNew<glm::dvec2>));
-static_assert(sizeof(glm::dvec3) == sizeof(VertexAttributeNew<glm::dvec3>));
-static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
-
-static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
-static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
-
-
-#define AttributeTypes  PositionAttribute, ColorAttribute, TexCoordAttribute, BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
-using AttributeVariant = std::variant<AttributeTypes>;
-
-template<typename T>
-constexpr auto GetIndexType(const AttributeVariant& v)
-{
-	//constexpr size_t i = static_cast<size_t>(nullptr) + static_cast<size_t>(nullptr);
-	return std::get_if<T>(&v);
-}
-
-//template<typename T>
-struct VertexBuffer //: private std::vector<std::byte>
-{
-	std::vector<AttributeVariant> VertexAttributes;
-	std::vector<std::byte> data;
-
-	void AddAttribute(const AttributeVariant& a)
-	{
-		VertexAttributes.push_back(a);
-	}
-
-	template<typename T>
-	void AddElement(const T&& elem)
-	{
-		auto byteSize = sizeof(T);
-		std::array < std::byte, T::Stride()> arr;
-		T* ptr = reinterpret_cast<T*>(&arr);
-		*ptr = elem;
-
-		 data.insert(data.end(), std::begin(arr), std::end(arr));
-
-	}
-
-	//always check for nullptr!
-	template<typename T>
-	T* GetAttribute(size_t idx)
-	{
-		auto vertexStride = TotalStride();
-		auto capacity = data.size() / vertexStride;
-		if (idx > capacity) return nullptr;
-		std::byte* ptr = nullptr;
-		const auto totalStride = idx * vertexStride;
-
-		size_t offset = 0; //build up offset as you traverse
-		auto lambda = [&](auto& variant) { return variant.Stride(); };
-		for (const auto& v : VertexAttributes)
-		{
-			const T* castPtr = std::get_if<T>(&v);
-
-			if (castPtr)
-			{
-				//ptr = castPtr + castPtr.Stride();
-
-				return reinterpret_cast<T*>(data.data() + totalStride + offset);
-			}
-
-			offset += std::visit(lambda, v);
-		}
-
-		return nullptr;
-	}
-
-	size_t TotalStride()
-	{
-		auto CallGenerate = [](auto& p) { return p.Stride(); };
-		size_t stride = 0;
-		for (auto& v : VertexAttributes)
-		{
-			stride += std::visit(CallGenerate, v);
-		}
-		return stride;
-	}
-	void OffsetOf() {};
-private:
-	//std::byte& operator[](int index)
-	//{
-		//return this[index];
-		//
-		//auto o =std::byte{8};
-		//return o;
-	//}
-};
 
 void VulkanHPP::Prepare()
 {
@@ -391,15 +217,14 @@ void VulkanHPP::Prepare()
 	constexpr AttributeVariant  attr1 = ColorAttribute(2, 1, 3);
 	constexpr AttributeVariant  attr3 = TexCoordAttribute(2, 1);
 	VertexBuffer vb;
-	
-	
-
+	 
 	vb.AddAttribute(BoneIndex(2, 1, 3));
 	vb.AddAttribute(PositionAttribute(2, 1, 3));
 
-	vb.AddElement(BoneIndex(55, 65, 75));
+	vb.AddElement(BoneIndex(1, 2, 3));
+	vb.AddElement(BoneIndex(4, 5, 6));
 
-	using T = PositionAttribute;
+	using T = BoneIndex;
 	auto* ptr = vb.GetAttribute<T>(0);
 	if (ptr)
 	{

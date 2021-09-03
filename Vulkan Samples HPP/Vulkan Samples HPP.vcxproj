@@ -144,11 +144,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="GLSLCompiler.cpp" />
+    <ClCompile Include="LoadModel.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VertexBuffer.cpp" />
     <ClCompile Include="VulkanHPP.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GLSLCompiler.h" />
+    <ClInclude Include="LoadModel.h" />
+    <ClInclude Include="VertexBuffer.h" />
     <ClInclude Include="VulkanHPP.h" />
     <ClInclude Include="VulkanStructs.h" />
   </ItemGroup>
