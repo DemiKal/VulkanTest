@@ -166,8 +166,8 @@ struct VertexBuffer //: private std::vector<std::byte>
 
 	VertexBuffer() = default;
 
-
-	size_t TotalStride()
+	//todo: cache!
+	size_t  TotalStride()
 	{
 		auto CallGenerate = [](auto& p) { return p.Stride(); };
 		size_t stride = 0;
@@ -178,6 +178,18 @@ struct VertexBuffer //: private std::vector<std::byte>
 		return stride;
 	}
 	void OffsetOf() {};
+
+	std::vector<vk::VertexInputBindingDescription> GetVertexInputBindingDescriptions(uint32_t binding = 0)
+	{
+		//std::vector<vk::VertexInputBindingDescription> bindingDescriptions = 
+		//{{0, sizeof(Vertex), vk::VertexInputRate::eVertex}};
+
+		return  { {binding, static_cast<uint32_t>(TotalStride()), vk::VertexInputRate::eVertex}, };
+
+
+
+	}
+
 
 	std::vector< vk::VertexInputAttributeDescription> GetVertexInputAttributeDescriptions(uint32_t binding = 0)
 	{
@@ -193,7 +205,7 @@ struct VertexBuffer //: private std::vector<std::byte>
 			const auto stride = std::visit(stride_lambda, variant);
 
 			attributeDescriptions.emplace_back(location, binding, format, offset);
-			
+
 			offset += stride;
 			location++;
 		}

@@ -800,9 +800,12 @@ void VulkanHPP::InitPipeline(Context& context   )
 
 	vk::PipelineVertexInputStateCreateInfo vertexInput;
 
-	std::vector<vk::VertexInputBindingDescription> bindingDescriptions = {
-			{0, sizeof(Vertex), vk::VertexInputRate::eVertex},
-	};
+	// std::vector<vk::VertexInputBindingDescription> bindingDescriptions1 = {
+	// 		{0, , vk::VertexInputRate::eVertex},
+	// };
+	constexpr auto asdasdasas = sizeof(Vertex);
+	 auto bindingDescriptions = triMesh.vertexBuffer.GetVertexInputBindingDescriptions();
+
 	vertexInput.setVertexBindingDescriptions({ (uint32_t)bindingDescriptions.size(), bindingDescriptions.data() });
 
 	auto attributeDescriptions = triMesh.vertexBuffer.GetVertexInputAttributeDescriptions();
