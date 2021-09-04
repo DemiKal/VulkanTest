@@ -102,14 +102,17 @@ struct VertexBuffer //: private std::vector<std::byte>
 	//size in bytes
 	size_t GetBufferSize() { return buffer.size() * sizeof(std::byte); /*lol*/ }
 
+	//template<typename T, typename ...Args>
+	//Check
+
 	template<typename T>
-	void AddElement(const T&& elem)
+	void AddElement( const  T&  elem)
 	{
 
 		//todo check size!
 
 		bool hasType = false;
-		for (auto& var : VertexAttributes)
+		for (auto& var : VertexAttributes) //todo: use bitset?
 			hasType |= static_cast<bool>(std::get_if<T>(&var));
 
 		if (!hasType)
@@ -117,14 +120,22 @@ struct VertexBuffer //: private std::vector<std::byte>
 			fmt::print("ey get outta here man, declare an attribute type first");
 			return;
 		}
+		size_t bufferSize = buffer.size();
+		size_t index = bufferSize;
+		size_t byteSize = sizeof(T);
 
-
-		auto byteSize = sizeof(T);
-		std::array < std::byte, T::Stride()> arr;
-		T* ptr = reinterpret_cast<T*>(&arr);
+		//if (buffer.size() + byteSize > buffer.capacity())
+		{
+			buffer.resize(bufferSize + byteSize);
+			bufferSize = buffer.size();
+		}
+		
+		//buffer.reserve(byteSize);
+		//std::array < std::byte, T::Stride()> arr;
+		T* ptr = reinterpret_cast<T*>(buffer.data() + index);
 		*ptr = std::move(elem);
 
-		buffer.insert(buffer.end(), std::begin(arr), std::end(arr));
+		//buffer.insert(buffer.end(), std::begin(arr), std::end(arr));
 
 	}
 
@@ -224,15 +235,23 @@ private:
 	//}
 };
 
+
 class IndexBuffer : public VertexBuffer
 {
 public:
+	
 	IndexBuffer()
 	{
 		//VertexBuffer(Indices)
 		AddAttribute(Indices{});
 		Finalize();
 	}
+
+	//public override size_t GetVertexCount
+	//{
+	//
+	//}
+
 };
 
 // : VertexAttributes{ std::move(attr) } {}

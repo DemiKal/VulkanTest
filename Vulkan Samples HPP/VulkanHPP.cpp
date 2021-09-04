@@ -71,9 +71,12 @@ struct Mesh
 	//std::vector<uint32_t> indexBuffer;
 
 	//Buffer<Vertex> vertexBuffer;
-	VertexBuffer indexBuffer;
+	IndexBuffer indexBuffer;
 	VertexBuffer vertexBuffer;
-
+	size_t GetVertexCount()
+	{
+		return vertexBuffer.GetBufferSize() / vertexBuffer.TotalStride();
+	}
 	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -96,7 +99,7 @@ struct Vertex {
 	float col[3];
 };
 
-  
+
 template<typename T>
 struct Buffer
 {
@@ -156,7 +159,7 @@ using remove_t = tuple_cat_t<
 template <class T, template <class> class OtherType>
 class Nest
 {
-	OtherType<T> f; 
+	OtherType<T> f;
 };
 
 
@@ -207,7 +210,7 @@ struct VertexDataOld
 	operator std::string() const { return std::to_string(stride); }
 };
 
- 
+
 
 
 void VulkanHPP::Prepare()
@@ -222,19 +225,33 @@ void VulkanHPP::Prepare()
 	vb.AddAttribute(PositionAttribute{});
 	vb.AddAttribute(ColorAttribute{});
 	vb.Finalize();
-//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
-//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+	//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
+	//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+	//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+	//PositionAttribute vv =		PositionAttribute{ -1,  1, 0 } *0.5f;
+	PositionAttribute v0p =	0.75f*	 PositionAttribute{ -1,  1, 0 };
+	ColorAttribute v0c =	0.75f*	ColorAttribute{ 1, 0, 1 };
+	PositionAttribute v1p =	0.75f*	 PositionAttribute{ 1 , 1 , 0.0f };
+	ColorAttribute v1c =	0.75f*	ColorAttribute{ 0, 1, 0 };
+	PositionAttribute v2p =	0.75f*	PositionAttribute{ 1, -1, 0 };
+	ColorAttribute v2c =	0.75f*	ColorAttribute{ 0, 0, 1 };
+	PositionAttribute v3p =	0.75f*	PositionAttribute{ -1, -1, 0 };
+	ColorAttribute v3c =	0.75f*	ColorAttribute{ 1, 1, 0 };
 
-	vb.AddElement(PositionAttribute	{ 1.0f, 1.0f, 0.0f }); 
-	vb.AddElement(ColorAttribute	{ 1.0f, 0.0f, 0.0f });
-	vb.AddElement(PositionAttribute	{ -1.0f, 1.0f, 0.0f });
-	vb.AddElement(ColorAttribute	{ 0.0f, 1.0f, 0.0f });
-	vb.AddElement(PositionAttribute	{ 0.0f, -1.0f, 0.0f });
-	vb.AddElement(ColorAttribute	{ 0.0f, 0.0f, 1.0f });
-	
+	vb.AddElement(v0p);
+	vb.AddElement(v0c);
+	vb.AddElement(v1p);
+	vb.AddElement(v1c);
+	vb.AddElement(v2p);
+	vb.AddElement(v2c);
+	vb.AddElement(v3p);
+	vb.AddElement(v3c);
+
+
+
+
+
 	vb.AddElement(BoneWeight{ 0.0f, 0.0f, 1.0f });
-
 	//vb.AddElement(BoneIndex(1, 2, 3));
 	//vb.AddElement(BoneIndex(4, 5, 6));
 	//interleave!
@@ -247,7 +264,8 @@ void VulkanHPP::Prepare()
 	auto b4 = vb.GetAttribute<ColorAttribute>(3);
 
 	IndexBuffer ib;
-	ib.AddElement(Indices{ 0 , 1 , 2  });
+	ib.AddElement(Indices{ 0 , 1 , 2 });
+	ib.AddElement(Indices{ 2 , 3 , 0 });
 
 	triMesh.vertexBuffer = vb;
 	triMesh.indexBuffer = ib;
@@ -494,7 +512,7 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
 	context.debug_callback = context.instance.createDebugReportCallbackEXT(debug_report_create_info);
 #endif
-	}
+}
 
 void VulkanHPP::SelectPhysicalDeviceAndInstance(Context& context)
 {
@@ -791,7 +809,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 	context.render_pass = context.device.createRenderPass(rp_info);
 }
 
-void VulkanHPP::InitPipeline(Context& context   )
+void VulkanHPP::InitPipeline(Context& context)
 {
 	// Create a blank pipeline layout.
 	// We are not binding any resources to the pipeline in this first sample.
@@ -800,19 +818,11 @@ void VulkanHPP::InitPipeline(Context& context   )
 
 	vk::PipelineVertexInputStateCreateInfo vertexInput;
 
-	// std::vector<vk::VertexInputBindingDescription> bindingDescriptions1 = {
-	// 		{0, , vk::VertexInputRate::eVertex},
-	// };
-	constexpr auto asdasdasas = sizeof(Vertex);
-	 auto bindingDescriptions = triMesh.vertexBuffer.GetVertexInputBindingDescriptions();
-
+	auto bindingDescriptions = triMesh.vertexBuffer.GetVertexInputBindingDescriptions();
 	vertexInput.setVertexBindingDescriptions({ (uint32_t)bindingDescriptions.size(), bindingDescriptions.data() });
 
 	auto attributeDescriptions = triMesh.vertexBuffer.GetVertexInputAttributeDescriptions();
-
-
 	vertexInput.setVertexAttributeDescriptions({ (uint32_t)attributeDescriptions.size(), attributeDescriptions.data() });
-
 
 	// Specify we will use triangle lists to draw geometry.
 	vk::PipelineInputAssemblyStateCreateInfo input_assembly({}, vk::PrimitiveTopology::eTriangleList);
@@ -1051,7 +1061,9 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Draw three vertices with one instance.
 	//cmd.draw(3, 1, 0, 0);
-	size_t indexCount = triMesh.indexBuffer.buffer.size() / 3;
+	size_t vertexCount = triMesh.GetVertexCount();
+	size_t indexStride = triMesh.indexBuffer.TotalStride();
+	size_t indexCount = triMesh.indexBuffer.buffer.size() / indexStride* glm::uvec3::length();
 	cmd.drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
 
 	// Complete render pass.
