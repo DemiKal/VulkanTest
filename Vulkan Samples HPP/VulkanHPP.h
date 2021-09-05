@@ -1,9 +1,9 @@
 #pragma once
 #include "vulkanStructs.h"
-//#include "VertexBuffer.h"
+ #include "VertexBuffer.h"
 
 struct GLFWwindow;
- 
+
 
 
 class VulkanHPP
@@ -15,7 +15,6 @@ public:
 
 	void Prepare();
 	void InitLogger();
-	void InitVertices(Context& m_Context);
 	void InitWindow();
 	void InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers);
 	void SelectPhysicalDeviceAndInstance(Context& context);
@@ -25,7 +24,9 @@ public:
 	void InitPipeline(Context& context);
 	void InitFrameBuffers(Context& context);
 	void InitAllocator(Context& context);
-
+	void InitVertices(Context& context);
+	void InitUniformBuffer(Context& context);
+	void InitDescriptorSetLayout(Context& context);
 	vk::SurfaceKHR CreateSurface(vk::Instance instance, vk::PhysicalDevice);
 	bool ValidateExtensions(const std::vector<const char*>& required, const std::vector<vk::ExtensionProperties>& available);
 	void TeardownPerFrame(Context& context, PerFrame& per_frame);
@@ -34,16 +35,20 @@ public:
 	void TearDownFramebuffers(Context& context);
 	vk::Result PresentImage(Context& context, uint32_t index);
 	vk::Result AcquireNextImage(Context& context, uint32_t* image);
+	void SetupDescriptorSet(Context& context);
+	void InitDescriptorPool(Context& context);
+	//void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
+	void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
+	void  UpdateUniformBuffer();
 
- 
-	Context m_Context;
-	
-	 
+	VmaAllocator m_Allocator;
 
+	UniformBuffer* m_Uniform;//= UniformBuffer
 	GLFWwindow* m_GLFWwindow;
-	//VmaAllocator m_Allocator;
+	 
 	int m_Width = 1024;
 	int m_Height = 768;
+	Context m_Context;
 };
 
 bool ValidateLayers(const std::vector<const char*>& required, const std::vector<vk::LayerProperties>& available);

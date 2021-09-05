@@ -2,6 +2,10 @@
 #define VKB_DEBUG 1
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #define VMA_IMPLEMENTATION
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define VKB_VALIDATION_LAYERS
+
 #include <tuple>
 #include "vk_mem_alloc.h"
 #include "VulkanHPP.h"
@@ -21,6 +25,10 @@ __pragma(warning(push, 0))
 
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+//#include <glm/ext/matrix_clip_space.hpp>
+
 #include <typeindex>
 #include <unordered_set>
 //#include <glm/fwd.hpp>
@@ -58,7 +66,29 @@ __pragma(warning(pop))
 	} while (0)
 
 
-VmaAllocator m_Allocator;
+std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
+
+
+struct Camera
+{
+	glm::mat4 projection;
+	glm::mat4 view;
+	glm::mat4 model;
+}camera;
+
+struct UboVS
+{
+	glm::mat4 projection;
+	glm::mat4 view;
+} ubo_vs;
+
+struct UboDataDynamic
+{
+	glm::mat4* model = nullptr;
+} ubo_data_dynamic;
+
+
+//Buffer UboBuffer;
 
 struct AllocatedBuffer {
 	VkBuffer _buffer;
@@ -72,17 +102,31 @@ struct Mesh
 
 	//Buffer<Vertex> vertexBuffer;
 	IndexBuffer indexBuffer;
-	VertexBuffer vertexBuffer;
-	size_t GetVertexCount()
-	{
-		return vertexBuffer.GetBufferSize() / vertexBuffer.TotalStride();
-	}
+	Buffer vertexBuffer;
+
 	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void window_size_callback(GLFWwindow* window, int width, int height);
 
+
+//template <class T>
+//void convert_and_update(const T& object, size_t offset = 0)
+//{
+//	update(reinterpret_cast<const uint8_t*>(&object), sizeof(T), offset);
+//}
+
+
+
+void VulkanHPP::UpdateUniformBuffer()
+{
+	// Fixed ubo with projection and view matrices
+	ubo_vs.projection = camera.projection;
+	ubo_vs.view = camera.view;
+
+	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
+}
 
 int LoadModel()
 {
@@ -94,36 +138,11 @@ int LoadModel()
 	return 0;
 }
 
-struct Vertex {
-	float pos[3];
-	float col[3];
-};
-
-
-template<typename T>
-struct Buffer
-{
-	std::vector<T> bufferdata;
-	//AllocatedBuffer allocatedBuffer;
-	VkBuffer vkBuffer;
-	VmaAllocation vmaAllocation;
-
-
-	Buffer(std::vector<T> buff) : bufferdata{ std::move(buff) } {}
-
-};
-
-
-
 
 static Mesh triMesh;
-//= Mesh(
-//	{
-//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
-//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
-//	}, { 0, 1, 2 });
 
+
+#pragma region templatememes
 template<auto N>
 struct TestExtraction {
 
@@ -209,18 +228,22 @@ struct VertexDataOld
 	}
 	operator std::string() const { return std::to_string(stride); }
 };
-
+#pragma endregion
 
 
 
 void VulkanHPP::Prepare()
 {
+	camera.model = glm::mat4(1.0f);
+	camera.view = glm::mat4(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)));
+	auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+	camera.projection = glm::perspective(glm::radians(60.0f), aspect, 1.f, 256.f);
 
-
+	//glm::persp
 	constexpr AttributeVariant  attr2 = PositionAttribute(2, 1, 3);
 	constexpr AttributeVariant  attr1 = ColorAttribute(2, 1, 3);
 	constexpr AttributeVariant  attr3 = TexCoordAttribute(2, 1);
-	VertexBuffer vb;
+	Buffer vb;
 
 	vb.AddAttribute(PositionAttribute{});
 	vb.AddAttribute(ColorAttribute{});
@@ -229,14 +252,16 @@ void VulkanHPP::Prepare()
 	//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
 	//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
 	//PositionAttribute vv =		PositionAttribute{ -1,  1, 0 } *0.5f;
-	PositionAttribute v0p =	0.75f*	 PositionAttribute{ -1,  1, 0 };
-	ColorAttribute v0c =	0.75f*	ColorAttribute{ 1, 0, 1 };
-	PositionAttribute v1p =	0.75f*	 PositionAttribute{ 1 , 1 , 0.0f };
-	ColorAttribute v1c =	0.75f*	ColorAttribute{ 0, 1, 0 };
-	PositionAttribute v2p =	0.75f*	PositionAttribute{ 1, -1, 0 };
-	ColorAttribute v2c =	0.75f*	ColorAttribute{ 0, 0, 1 };
-	PositionAttribute v3p =	0.75f*	PositionAttribute{ -1, -1, 0 };
-	ColorAttribute v3c =	0.75f*	ColorAttribute{ 1, 1, 0 };
+
+
+	PositionAttribute v0p = PositionAttribute{ 1.0f, 1.0f, 0.0f };
+	ColorAttribute v0c = ColorAttribute{ 1.0f, 0.0f, 0.0f };
+	PositionAttribute v1p = PositionAttribute{ -1.0f, 1.0f, 0.0f };
+	ColorAttribute v1c = ColorAttribute{ 0.0f, 1.0f, 0.0f };
+	PositionAttribute v2p = PositionAttribute{ 0.0f, -1.0f, 0.0f };
+	ColorAttribute v2c = ColorAttribute{ 0.0f, 0.0f, 1.0f };
+	//PositionAttribute v3p = PositionAttribute{ -1, -1, 0 };
+	//ColorAttribute v3c = ColorAttribute{ 1, 1, 0 };
 
 	vb.AddElement(v0p);
 	vb.AddElement(v0c);
@@ -244,8 +269,8 @@ void VulkanHPP::Prepare()
 	vb.AddElement(v1c);
 	vb.AddElement(v2p);
 	vb.AddElement(v2c);
-	vb.AddElement(v3p);
-	vb.AddElement(v3c);
+	//vb.AddElement(v3p);
+	//vb.AddElement(v3c);
 
 
 
@@ -255,6 +280,8 @@ void VulkanHPP::Prepare()
 	//vb.AddElement(BoneIndex(1, 2, 3));
 	//vb.AddElement(BoneIndex(4, 5, 6));
 	//interleave!
+
+
 	auto a1 = vb.GetAttribute<PositionAttribute>(0);
 	auto b1 = vb.GetAttribute<ColorAttribute>(0);
 	auto a2 = vb.GetAttribute<PositionAttribute>(1);
@@ -265,7 +292,7 @@ void VulkanHPP::Prepare()
 
 	IndexBuffer ib;
 	ib.AddElement(Indices{ 0 , 1 , 2 });
-	ib.AddElement(Indices{ 2 , 3 , 0 });
+	//ib.AddElement(Indices{2 , 3 , 0});
 
 	triMesh.vertexBuffer = vb;
 	triMesh.indexBuffer = ib;
@@ -306,13 +333,97 @@ void VulkanHPP::Prepare()
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
 	InitRenderPass(m_Context);
+	InitUniformBuffer(m_Context);
+	InitDescriptorPool(m_Context);
+	InitDescriptorSetLayout(m_Context);
+	SetupDescriptorSet(m_Context);
 	InitPipeline(m_Context);
 	InitFrameBuffers(m_Context);
 	InitAllocator(m_Context);
 
-
 	InitVertices(m_Context);
 }
+
+void VulkanHPP::SetupDescriptorSet(Context& context)
+{
+	// Allocate a new descriptor set from the global descriptor pool
+	vk::DescriptorSetAllocateInfo allocInfo;
+	allocInfo.descriptorPool = context.descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &context.descriptorSetLayout;
+
+	context.descriptorSet = context.device.allocateDescriptorSets(allocInfo)[0];
+
+	// Update the descriptor set determining the shader binding points
+	// For every binding point used in a shader there needs to be one
+	// descriptor set matching that binding point
+	//vk::DescriptorBufferInfo descrBufferInfo;// = (*m_Uniform->handle, 0, VK_WHOLE_SIZE);
+	//descrBufferInfo.buffer = m_Uniform->handle;
+	//descrBufferInfo.offset = 0;
+	//descrBufferInfo.range = VK_WHOLE_SIZE;
+
+	vk::WriteDescriptorSet writeDescriptorSet;
+	// Binding 0 : Uniform buffer
+	writeDescriptorSet.dstSet = context.descriptorSet;
+	writeDescriptorSet.descriptorCount = 1;
+	writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBuffer;
+	writeDescriptorSet.pBufferInfo = &m_Uniform->m_DescrBufferInfo;
+	// Binds this uniform buffer to binding point 0
+	writeDescriptorSet.dstBinding = 0;
+
+
+	//writeDescriptorSet.pBufferInfo = &descrBufferInfo;
+	//writeDescriptorSet.setBufferInfo()
+	context.device.updateDescriptorSets(writeDescriptorSet, nullptr);
+}
+
+void VulkanHPP::InitDescriptorPool(Context& context)
+{
+	// We need to tell the API the number of max. requested descriptors per type
+	vk::DescriptorPoolSize typeCounts[1];
+	// This example only uses one descriptor type (uniform buffer) and only
+	// requests one descriptor of this type
+	typeCounts[0].type = vk::DescriptorType::eUniformBuffer;
+	typeCounts[0].descriptorCount = 1;
+	// For additional types you need to add new entries in the type count list
+	// E.g. for two combined image samplers :
+	// typeCounts[1].type = vk::DescriptorType::eCombinedImageSampler;
+	// typeCounts[1].descriptorCount = 2;
+
+	// Create the global descriptor pool
+	// All descriptors used in this example are allocated from this pool
+	vk::DescriptorPoolCreateInfo descriptorPoolInfo;
+	descriptorPoolInfo.poolSizeCount = 1;
+	descriptorPoolInfo.pPoolSizes = typeCounts;
+	// Set the max. number of sets that can be requested
+	// Requesting descriptors beyond maxSets will result in an error
+	descriptorPoolInfo.maxSets = 1;
+	context.descriptorPool = context.device.createDescriptorPool(descriptorPoolInfo);
+}
+
+void VulkanHPP::InitDescriptorSetLayout(Context& context)
+{
+	static vk::DescriptorSetLayoutBinding layoutBinding;
+	layoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+	layoutBinding.descriptorCount = 1;
+	layoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+	layoutBinding.pImmutableSamplers = nullptr;
+	layoutBinding.binding = 0;
+
+	static vk::DescriptorSetLayoutCreateInfo descriptorLayout;
+	descriptorLayout.bindingCount = 1;
+	descriptorLayout.pBindings = &layoutBinding;
+	
+	context.descriptorSetLayout = context.device.createDescriptorSetLayout(descriptorLayout, nullptr);
+
+	vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &context.descriptorSetLayout;
+
+	context.pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
+}
+
+
 
 void VulkanHPP::InitAllocator(Context& context)
 {
@@ -323,8 +434,9 @@ void VulkanHPP::InitAllocator(Context& context)
 	vmaCreateAllocator(&allocatorInfo, &m_Allocator);
 }
 
+
 //template <typename T>
-void StageBuffer(Context& context, VertexBuffer& allocBuffer)
+void VulkanHPP::StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage)
 {
 	const size_t bufferSize = allocBuffer.GetBufferSize();
 
@@ -340,29 +452,30 @@ void StageBuffer(Context& context, VertexBuffer& allocBuffer)
 
 	void* data;
 	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
-
 	memcpy(data, allocBuffer.buffer.data(), bufferSize);
 
 	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
-
 	////////////////////////
 	////  COPY 1 DONE!  ////
 	////////////////////////
 
 	//C++ style
-	auto usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	auto usage = vk::BufferUsageFlagBits::eTransferDst;
 	auto vkBuffer_CI = vk::BufferCreateInfo{ {}, bufferSize, usage };
 	VkBufferCreateInfo vertexBufferInfo = vkBuffer_CI; //convert!
 	//let the VMA library know that this data should be gpu native	
-	vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	vmaallocInfo.usage = memoryUsage;
 	VkBuffer vkBuff = allocBuffer.vkBuffer;
-	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, reinterpret_cast<VkBuffer*>(&allocBuffer.vkBuffer), &allocBuffer.vmaAllocation, nullptr));
 
+	VmaAllocationInfo allocationInfo{};
+	VK_CHECK(vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaallocInfo, reinterpret_cast<VkBuffer*>(&allocBuffer.vkBuffer), &allocBuffer.vmaAllocation, &allocationInfo));
+	allocBuffer.DeviceMemory = static_cast<vk::DeviceMemory>(allocationInfo.deviceMemory);
+
+	allocBuffer.mapped_data = static_cast<uint8_t*>(allocationInfo.pMappedData);
 
 	auto cmdBuffer_AI = vk::CommandBufferAllocateInfo{ context.m_UploadContext._commandPool, vk::CommandBufferLevel::ePrimary, 1 };
 	auto allocatedCmdBuffers = context.device.allocateCommandBuffers(cmdBuffer_AI);
 	vk::CommandBuffer cmdBuffer = allocatedCmdBuffers.front();
-
 
 	auto cmdBuffer_BI = vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 	cmdBuffer.begin(cmdBuffer_BI);
@@ -387,11 +500,47 @@ void StageBuffer(Context& context, VertexBuffer& allocBuffer)
 	vmaDestroyBuffer(m_Allocator, stagingBuffer._buffer, stagingBuffer._allocation);
 }
 
+void VulkanHPP::InitUniformBuffer(Context& context)
+{
+	//constexpr size_t size = sizeof(Camera);
+	//
+	//UboBuffer.buffer.resize(size);
+	//Camera* camPtr = reinterpret_cast<Camera*>(UboBuffer.buffer.data());
+	//memcpy(camPtr, &camera, size);
+	//
+	//StageBuffer(context, UboBuffer, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	//context.device.bindBufferMemory(UboBuffer.vkBuffer, UboBuffer.DeviceMemory, 0);
+
+	auto OBJECT_INSTANCES = 1;
+	size_t min_ubo_alignment = context.gpu.getProperties().limits.minUniformBufferOffsetAlignment;// get_device().get_gpu().get_properties().limits.minUniformBufferOffsetAlignment;
+	size_t dynamicAlignment = sizeof(glm::mat4);
+	if (min_ubo_alignment > 0)
+	{
+		dynamicAlignment = (dynamicAlignment + min_ubo_alignment - 1) & ~(min_ubo_alignment - 1);
+	}
+
+	size_t buffer_size = OBJECT_INSTANCES * dynamicAlignment;
+
+	ubo_data_dynamic.model = (glm::mat4*)_aligned_malloc(buffer_size, dynamicAlignment);
+	assert(ubo_data_dynamic.model);
+	VkDeviceSize sz = sizeof(UboVS);
+	m_Uniform = new UniformBuffer(context.device, sz, m_Allocator, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
+
+
+	//
+   //
+   //
+   //
+   //auto offset = 0;
+
+   //auto mapped = context.device.mapMemory(memory, offset, size, vk::MemoryMapFlags());
+}
 
 void VulkanHPP::InitVertices(Context& context)
 {
-	StageBuffer(context, triMesh.vertexBuffer);
-	StageBuffer(context, triMesh.indexBuffer);
+	StageBuffer(context, triMesh.vertexBuffer, vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	StageBuffer(context, triMesh.indexBuffer, vk::BufferUsageFlagBits::eIndexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 void VulkanHPP::InitWindow()
@@ -411,7 +560,7 @@ void VulkanHPP::InitWindow()
 
 void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers)
 {
-	fmt::print("Initializing Vulkan");
+	LOGI("Initializing Vulkan");
 
 	//alternative
 	// vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
@@ -486,7 +635,7 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 		//fmt::print("Enabled Validation Layers:");
 		for (const auto& layer : requested_validation_layers)
 		{
-			//fmt::print("	\t{}", layer);
+			LOGI(layer);
 		}
 	}
 	else
@@ -813,7 +962,7 @@ void VulkanHPP::InitPipeline(Context& context)
 {
 	// Create a blank pipeline layout.
 	// We are not binding any resources to the pipeline in this first sample.
-	context.pipeline_layout = context.device.createPipelineLayout({});
+	context.pipelineLayout;// = context.device.createPipelineLayout({});
 
 
 	vk::PipelineVertexInputStateCreateInfo vertexInput;
@@ -855,29 +1004,35 @@ void VulkanHPP::InitPipeline(Context& context)
 
 	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
 
-	// Load our SPIR-V shaders.
-	//std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
-	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, loadShaderModule(context, "triangle.vert"), "main"),
-	//	vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, loadShaderModule(context, "triangle.frag"), "main") };
-	const std::string kShaderSource = R"vertexShader(#version 320 es
-precision mediump float;
+	const std::string kShaderSource = R"vertexShader(
+	#version 450
 
-layout(location = 0) in vec3 pos;
-layout(location = 1) in vec3 col;
+	layout(location = 0) in vec3 inPos;
+	layout(location = 1) in vec3 inColor;
 
-layout(location = 0) out vec3 out_color;
+	layout(binding = 0) uniform UBO
+	{
+		mat4 projectionMatrix;
+		mat4 viewMatrix;
+	} ubo;
 
- 
-void main()
-{
-    gl_Position = vec4(pos.x, pos.y, pos.z, 1.0f);
+	layout(location = 0) out vec3 outColor;
 
-    out_color = col;
-}
+	out gl_PerVertex
+	{
+		vec4 gl_Position;
+	};
+
+
+	void main()
+	{
+		outColor = inColor;
+		gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(inPos.xyz, 1.0);
+	}
 )vertexShader";
 
-	const std::string fragmentShader = R"fragmentShader(#version 320 es
-precision mediump float;
+	const std::string fragmentShader = R"fragmentShader(
+#version 450
 
 layout(location = 0) in vec3 in_color;
 
@@ -931,10 +1086,12 @@ void main()
 
 	// We need to specify the pipeline layout and the render pass description up front as well.
 	pipe.renderPass = context.render_pass;
-	pipe.layout = context.pipeline_layout;
+	pipe.setLayout(context.pipelineLayout);
 
 	context.pipeline = context.device.createGraphicsPipeline(nullptr, pipe).value;
-
+	VkPipeline a1 = static_cast<VkPipeline>(context.pipeline);
+	VkPipelineLayout a2 = static_cast<VkPipelineLayout>(context.pipelineLayout);
+	//VkPipeline a1 = static_cast<VkPipeline>(context.pipeline);
 	// Pipeline is baked, we can delete the shader modules now.
 	context.device.destroyShaderModule(shader_stages[0].module);
 	context.device.destroyShaderModule(shader_stages[1].module);
@@ -1011,6 +1168,8 @@ void VulkanHPP::Update(float deltaTime)
 	{
 		LOGE("Failed to present swapchain image.");
 	}
+
+	UpdateUniformBuffer();
 }
 
 vk::Result VulkanHPP::PresentImage(Context& context, uint32_t index)
@@ -1043,6 +1202,8 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	// We will add draw commands in the same command buffer.
 	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
 
+	cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, context.pipelineLayout, 0, context.descriptorSet, nullptr);
+
 	// Bind the graphics pipeline.
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
 	vk::Buffer buffer{ triMesh.vertexBuffer.vkBuffer };
@@ -1061,9 +1222,9 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Draw three vertices with one instance.
 	//cmd.draw(3, 1, 0, 0);
-	size_t vertexCount = triMesh.GetVertexCount();
-	size_t indexStride = triMesh.indexBuffer.TotalStride();
-	size_t indexCount = triMesh.indexBuffer.buffer.size() / indexStride* glm::uvec3::length();
+	size_t vertexCount = triMesh.vertexBuffer.GetVertexCount();
+	size_t indexCount = triMesh.indexBuffer.GetVertexCount();
+
 	cmd.drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
 
 	// Complete render pass.
@@ -1387,4 +1548,62 @@ void VulkanHPP::InitLogger()
 	spdlog::set_default_logger(logger);
 	LOGI("Logger initialized");
 
+}
+
+bool validate_layers(const std::vector<const char*>& required,
+	const std::vector<vk::LayerProperties>& available)
+{
+	// inner find_if returns true if the layer was not found
+	// outer find_if returns iterator to the not found layer, if any
+	auto requiredButNotFoundIt = std::find_if(required.begin(),
+		required.end(),
+		[&available](auto layer) {
+			return std::find_if(available.begin(),
+				available.end(),
+				[&layer](auto const& lp) {
+					return strcmp(lp.layerName, layer) == 0;
+				}) == available.end();
+		});
+	if (requiredButNotFoundIt != required.end())
+	{
+		LOGE("Validation Layer {} not found", *requiredButNotFoundIt);
+	}
+	return (requiredButNotFoundIt == required.end());
+}
+
+
+std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers)
+{
+	std::vector<std::vector<const char*>> validation_layer_priority_list =
+	{
+		// The preferred validation layer is "VK_LAYER_KHRONOS_validation"
+		{"VK_LAYER_KHRONOS_validation"},
+
+		// Otherwise we fallback to using the LunarG meta layer
+		{"VK_LAYER_LUNARG_standard_validation"},
+
+		// Otherwise we attempt to enable the individual layers that compose the LunarG meta layer since it doesn't exist
+		{
+			"VK_LAYER_GOOGLE_threading",
+			"VK_LAYER_LUNARG_parameter_validation",
+			"VK_LAYER_LUNARG_object_tracker",
+			"VK_LAYER_LUNARG_core_validation",
+			"VK_LAYER_GOOGLE_unique_objects",
+		},
+
+		// Otherwise as a last resort we fallback to attempting to enable the LunarG core layer
+		{"VK_LAYER_LUNARG_core_validation"} };
+
+	for (auto& validation_layers : validation_layer_priority_list)
+	{
+		if (validate_layers(validation_layers, supported_instance_layers))
+		{
+			return validation_layers;
+		}
+
+		LOGW("Couldn't enable validation layers (see log for error) - falling back");
+	}
+
+	// Else return nothing
+	return {};
 }

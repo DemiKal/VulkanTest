@@ -5,7 +5,126 @@
 #include <vector>
 #include <fmt/format.h>
 #include "vk_mem_alloc.h"
+//#include "VulkanHPP.h"
+#include <glm/gtc/matrix_transform.hpp>
 
+struct Context;
+struct UniformBuffer
+{
+	size_t dynamicAlignment;
+	uint8_t* mapped_data;
+	size_t size;
+	bool persistent;
+	vk::Buffer handle;
+	VmaAllocation allocation;
+	//VkDeviceMemory memory;
+	vk::DeviceMemory memory;
+	//VmaAllocator m_vmaAllocator_ref;
+	vk::DescriptorBufferInfo m_DescrBufferInfo;
+
+	UniformBuffer(
+		vk::Device& device,
+		VkDeviceSize size,
+		VmaAllocator vmaAllocator,
+		VkBufferUsageFlags buffer_usage,
+		VmaMemoryUsage memory_usage,
+		VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_MAPPED_BIT) :
+		size{ size }
+	{
+		//m_vmaAllocator_ref = vmaAllocator;
+		//persistent = (flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
+		//
+		//VkBufferCreateInfo buffer_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		//buffer_info.usage = buffer_usage;
+		//buffer_info.size = size;
+		//
+		//VmaAllocationCreateInfo memory_info{};
+		//memory_info.flags = flags;
+		//memory_info.usage = memory_usage;
+		//
+		//VmaAllocationInfo allocation_info{};
+		//auto              result = vmaCreateBuffer(vmaAllocator,
+		//	&buffer_info, &memory_info,
+		//	reinterpret_cast<VkBuffer*>(&handle), &allocation,
+		//	&allocation_info);
+		//
+		//if (result != VK_SUCCESS)
+		//{
+		//	throw std::exception{ "Cannot create Buffer" };
+		//}
+		//
+		//memory = static_cast<vk::DeviceMemory>(allocation_info.deviceMemory);
+		//if (persistent)
+		//{
+		//	mapped_data = static_cast<uint8_t*>(allocation_info.pMappedData);
+		//}
+		//auto res = vmaMapMemory(vmaAllocator, allocation,   (void**)&mapped_data);
+		//device.bindBufferMemory(handle, memory, 0);
+		glm::mat4x4 model = glm::mat4x4(1.0f);
+		glm::mat4x4 view =
+			glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+		glm::mat4x4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+		// clang-format off
+		glm::mat4x4 clip = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, -1.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 0.5f, 0.0f,
+			0.0f, 0.0f, 0.5f, 1.0f);  // vulkan clip space has inverted y and half z !
+		glm::mat4x4 mvpc = clip * projection * view * model;
+ 	 
+		 
+		vk::Buffer uniformDataBuffer = device.createBuffer(
+			vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(mvpc), vk::BufferUsageFlagBits::eUniformBuffer));
+		handle = uniformDataBuffer;
+		vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(uniformDataBuffer);
+		uint32_t typeIndex = 8;
+		//uint32_t               typeIndex =
+		//	vk::su::findMemoryType(physicalDevice.getMemoryProperties(),
+		//		memoryRequirements.memoryTypeBits,
+		//		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+		vk::DeviceMemory uniformDataMemory =
+			device.allocateMemory(vk::MemoryAllocateInfo(memoryRequirements.size, typeIndex));
+		mapped_data = static_cast<uint8_t*>(device.mapMemory(uniformDataMemory, 0, memoryRequirements.size));
+		memcpy(mapped_data, &mvpc, sizeof(mvpc));
+		//device.unmapMemory(uniformDataMemory);
+		 
+		m_DescrBufferInfo.buffer = handle;
+		m_DescrBufferInfo.offset = 0;
+		m_DescrBufferInfo.range = VK_WHOLE_SIZE;
+
+		device.bindBufferMemory(uniformDataBuffer, uniformDataMemory, 0);
+
+
+	}
+
+	template <class T>
+	void convert_and_update(VmaAllocator vmaAlloc, const T& object, size_t offset = 0)
+	{
+		update(vmaAlloc, reinterpret_cast<const uint8_t*>(&object), sizeof(T), offset);
+	}
+
+	void update(VmaAllocator vmaAlloc, const uint8_t* data, const size_t size, const size_t offset)
+	{
+		return;
+		if (persistent)
+		{
+			std::copy(data, data + size, mapped_data + offset);
+			Flush(vmaAlloc);
+		}
+		else
+		{
+			//map();
+			std::copy(data, data + size, mapped_data + offset);
+			Flush(vmaAlloc);
+			//unmap();
+		}
+	}
+
+	void Flush(VmaAllocator vmaAlloc)
+	{
+		vmaFlushAllocation(vmaAlloc, allocation, 0, size);
+	}
+
+};
 
 template<typename T  >
 struct VertexAttributeNew : T  //todo: add normalization?
@@ -49,7 +168,16 @@ struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct BoneWeight : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
 struct BoneIndex : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_CONSTRUCTOR };
-struct Indices : VertexAttributeNew<glm::uvec3> { INHERIT_CONSTRUCTOR };
+
+//template <typename N, template<class...> class V>
+//template <int N>
+struct Indices : VertexAttributeNew <glm::uvec3>
+{
+	INHERIT_CONSTRUCTOR
+};
+
+
+//struct Indices4 : VertexAttributeNew<glm::uvec2> { INHERIT_CONSTRUCTOR };
 
 //no padding allowed!
 static_assert(sizeof(glm::vec1) == sizeof(VertexAttributeNew<glm::vec1>));
@@ -70,7 +198,7 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, Indices,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
+#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, Indices ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
 
 
@@ -81,12 +209,17 @@ constexpr auto GetIndexType(const AttributeVariant& v)
 	return std::get_if<T>(&v);
 }
 
-struct VertexBuffer //: private std::vector<std::byte>
+struct Buffer //: private std::vector<std::byte>
 {
 	std::vector<AttributeVariant> VertexAttributes;
 	std::vector<std::byte> buffer;
+	uint8_t* mapped_data{ nullptr };
+
 	vk::Buffer vkBuffer;
+	vk::DeviceMemory DeviceMemory;
 	VmaAllocation vmaAllocation;
+	vk::BufferUsageFlags usageFlags;
+	vk::DescriptorBufferInfo descriptor;
 	bool m_IsFinalized = false;
 
 	void AddAttribute(const AttributeVariant& a)
@@ -101,12 +234,16 @@ struct VertexBuffer //: private std::vector<std::byte>
 
 	//size in bytes
 	size_t GetBufferSize() { return buffer.size() * sizeof(std::byte); /*lol*/ }
+	size_t GetVertexCount()
+	{
+		return  buffer.size() / TotalStride();
+	}
 
 	//template<typename T, typename ...Args>
 	//Check
 
 	template<typename T>
-	void AddElement( const  T&  elem)
+	void AddElement(const  T& elem)
 	{
 
 		//todo check size!
@@ -129,7 +266,7 @@ struct VertexBuffer //: private std::vector<std::byte>
 			buffer.resize(bufferSize + byteSize);
 			bufferSize = buffer.size();
 		}
-		
+
 		//buffer.reserve(byteSize);
 		//std::array < std::byte, T::Stride()> arr;
 		T* ptr = reinterpret_cast<T*>(buffer.data() + index);
@@ -168,14 +305,14 @@ struct VertexBuffer //: private std::vector<std::byte>
 		return nullptr;
 	}
 
-	//VertexBuffer(AttributeVariant&& attr) : 
+	//Buffer(AttributeVariant&& attr) : 
 	//	VertexAttributes{ std::move  (attr) },
 	//	vmaAllocation{}, 
 	//	vkBuffer{}, 
 	//	buffer{}  
 	//{}
 
-	VertexBuffer() = default;
+	Buffer() = default;
 
 	//todo: cache!
 	size_t  TotalStride()
@@ -235,22 +372,22 @@ private:
 	//}
 };
 
-
-class IndexBuffer : public VertexBuffer
+class IndexBuffer : public Buffer
 {
 public:
-	
+
 	IndexBuffer()
 	{
-		//VertexBuffer(Indices)
+		//Buffer(Indices)
 		AddAttribute(Indices{});
 		Finalize();
 	}
 
-	//public override size_t GetVertexCount
-	//{
-	//
-	//}
+public:
+	size_t GetVertexCount()
+	{
+		return  buffer.size() / TotalStride() * glm::uvec3::length();
+	}
 
 };
 

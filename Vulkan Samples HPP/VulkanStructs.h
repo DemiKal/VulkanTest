@@ -34,6 +34,7 @@ struct PerFrame
 
 struct Context
 {
+ 	Context&  operator= (const Context&) = delete;
 	//Context(Context& other) = delete;
 	/// The Vulkan instance.
 	vk::Instance instance;
@@ -75,7 +76,7 @@ struct Context
 	 * The pipeline layout for resources.
 	 * Not used in this sample, but we still need to provide a dummy one.
 	 */
-	vk::PipelineLayout pipeline_layout;
+	//vk::PipelineLayout pipeline_layout;
 
 	/// The debug report callback.
 	vk::DebugReportCallbackEXT debug_callback;
@@ -90,4 +91,9 @@ struct Context
 		vk::Fence _uploadFence;
 		vk::CommandPool _commandPool;
 	}m_UploadContext;
+
+	vk::DescriptorSetLayout descriptorSetLayout;
+	vk::PipelineLayout pipelineLayout;
+	vk::DescriptorPool descriptorPool;
+	vk::DescriptorSet descriptorSet;
 };
