@@ -39,7 +39,7 @@ public:
 	void InitDescriptorPool(Context& context);
 	//void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
-	void  UpdateUniformBuffer();
+	void  UpdateUniformBuffer(float dt);
 
 	VmaAllocator m_Allocator;
 

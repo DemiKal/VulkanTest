@@ -60,20 +60,27 @@ struct UniformBuffer
 		//}
 		//auto res = vmaMapMemory(vmaAllocator, allocation,   (void**)&mapped_data);
 		//device.bindBufferMemory(handle, memory, 0);
+		struct ubo
+		{
+			glm::mat4 proj;
+			glm::mat4 view;
+		}ubo;
+
 		glm::mat4x4 model = glm::mat4x4(1.0f);
-		glm::mat4x4 view =
+		ubo.view =
 			glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-		glm::mat4x4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+		ubo.proj  = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 		// clang-format off
-		glm::mat4x4 clip = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, -1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 0.5f, 0.0f,
-			0.0f, 0.0f, 0.5f, 1.0f);  // vulkan clip space has inverted y and half z !
-		glm::mat4x4 mvpc = clip * projection * view * model;
- 	 
-		 
+		//glm::mat4x4 clip = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
+		//	0.0f, -1.0f, 0.0f, 0.0f,
+		//	0.0f, 0.0f, 0.5f, 0.0f,
+		//	0.0f, 0.0f, 0.5f, 1.0f);  // vulkan clip space has inverted y and half z !
+		//glm::mat4x4 mvpc = projection * view * model;
+
+	
+
 		vk::Buffer uniformDataBuffer = device.createBuffer(
-			vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(mvpc), vk::BufferUsageFlagBits::eUniformBuffer));
+			vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(ubo), vk::BufferUsageFlagBits::eUniformBuffer));
 		handle = uniformDataBuffer;
 		vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(uniformDataBuffer);
 		uint32_t typeIndex = 8;
@@ -84,9 +91,9 @@ struct UniformBuffer
 		vk::DeviceMemory uniformDataMemory =
 			device.allocateMemory(vk::MemoryAllocateInfo(memoryRequirements.size, typeIndex));
 		mapped_data = static_cast<uint8_t*>(device.mapMemory(uniformDataMemory, 0, memoryRequirements.size));
-		memcpy(mapped_data, &mvpc, sizeof(mvpc));
+		memcpy(mapped_data, &ubo, sizeof(ubo));
 		//device.unmapMemory(uniformDataMemory);
-		 
+
 		m_DescrBufferInfo.buffer = handle;
 		m_DescrBufferInfo.offset = 0;
 		m_DescrBufferInfo.range = VK_WHOLE_SIZE;
@@ -104,11 +111,11 @@ struct UniformBuffer
 
 	void update(VmaAllocator vmaAlloc, const uint8_t* data, const size_t size, const size_t offset)
 	{
-		return;
+
 		if (persistent)
 		{
 			std::copy(data, data + size, mapped_data + offset);
-			Flush(vmaAlloc);
+			//Flush(vmaAlloc);
 		}
 		else
 		{

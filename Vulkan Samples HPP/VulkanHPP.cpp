@@ -69,23 +69,23 @@ __pragma(warning(pop))
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
 
 
-struct Camera
-{
-	glm::mat4 projection;
-	glm::mat4 view;
-	glm::mat4 model;
-}camera;
+//struct Camera
+//{
+//	glm::mat4 projection;
+//	glm::mat4 view;
+//	glm::mat4 model;
+//}camera;
+//
+//struct UboVS
+//{
+//	glm::mat4 projection;
+//	glm::mat4 view;
+//} ubo_vs;
 
-struct UboVS
-{
-	glm::mat4 projection;
-	glm::mat4 view;
-} ubo_vs;
-
-struct UboDataDynamic
-{
-	glm::mat4* model = nullptr;
-} ubo_data_dynamic;
+//struct UboDataDynamic
+//{
+//	glm::mat4* model = nullptr;
+//} ubo_data_dynamic;
 
 
 //Buffer UboBuffer;
@@ -117,14 +117,23 @@ void window_size_callback(GLFWwindow* window, int width, int height);
 //	update(reinterpret_cast<const uint8_t*>(&object), sizeof(T), offset);
 //}
 
-
-
-void VulkanHPP::UpdateUniformBuffer()
+struct UBO
 {
-	// Fixed ubo with projection and view matrices
-	ubo_vs.projection = camera.projection;
-	ubo_vs.view = camera.view;
+	glm::mat4 proj;
+	glm::mat4 view = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+}ubo_vs;
 
+void VulkanHPP::UpdateUniformBuffer(float dt)
+{
+	static size_t tick = 0;
+	tick++;
+	float aspect = (float)m_Width / (float)m_Height;
+	ubo_vs.proj = glm::perspective(glm::radians(70.0f), aspect, 0.0f, 100.0f);
+	ubo_vs.view = glm::translate(ubo_vs.view, glm::vec3(0, 0.1f, 0) * dt);
+	// Fixed ubo with projection and view matrices
+	//ubo_vs.projection = camera.projection;
+	//ubo_vs.view = camera.view;
+	//
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
 
@@ -234,10 +243,10 @@ struct VertexDataOld
 
 void VulkanHPP::Prepare()
 {
-	camera.model = glm::mat4(1.0f);
-	camera.view = glm::mat4(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)));
-	auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
-	camera.projection = glm::perspective(glm::radians(60.0f), aspect, 1.f, 256.f);
+	//camera.model = glm::mat4(1.0f);
+	//camera.view = glm::mat4(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)));
+	//auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+	//camera.projection = glm::perspective(glm::radians(60.0f), aspect, 1.f, 256.f);
 
 	//glm::persp
 	constexpr AttributeVariant  attr2 = PositionAttribute(2, 1, 3);
@@ -333,13 +342,13 @@ void VulkanHPP::Prepare()
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
 	InitRenderPass(m_Context);
+	InitAllocator(m_Context);
 	InitUniformBuffer(m_Context);
 	InitDescriptorPool(m_Context);
 	InitDescriptorSetLayout(m_Context);
 	SetupDescriptorSet(m_Context);
 	InitPipeline(m_Context);
 	InitFrameBuffers(m_Context);
-	InitAllocator(m_Context);
 
 	InitVertices(m_Context);
 }
@@ -413,7 +422,7 @@ void VulkanHPP::InitDescriptorSetLayout(Context& context)
 	static vk::DescriptorSetLayoutCreateInfo descriptorLayout;
 	descriptorLayout.bindingCount = 1;
 	descriptorLayout.pBindings = &layoutBinding;
-	
+
 	context.descriptorSetLayout = context.device.createDescriptorSetLayout(descriptorLayout, nullptr);
 
 	vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
@@ -460,10 +469,11 @@ void VulkanHPP::StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsa
 	////////////////////////
 
 	//C++ style
-	auto usage = vk::BufferUsageFlagBits::eTransferDst;
+	auto usage = usageFlags | vk::BufferUsageFlagBits::eTransferDst;
 	auto vkBuffer_CI = vk::BufferCreateInfo{ {}, bufferSize, usage };
 	VkBufferCreateInfo vertexBufferInfo = vkBuffer_CI; //convert!
 	//let the VMA library know that this data should be gpu native	
+
 	vmaallocInfo.usage = memoryUsage;
 	VkBuffer vkBuff = allocBuffer.vkBuffer;
 
@@ -521,11 +531,12 @@ void VulkanHPP::InitUniformBuffer(Context& context)
 
 	size_t buffer_size = OBJECT_INSTANCES * dynamicAlignment;
 
-	ubo_data_dynamic.model = (glm::mat4*)_aligned_malloc(buffer_size, dynamicAlignment);
-	assert(ubo_data_dynamic.model);
-	VkDeviceSize sz = sizeof(UboVS);
+	//ubo_data_dynamic.model = (glm::mat4*)_aligned_malloc(buffer_size, dynamicAlignment);
+	//assert(ubo_data_dynamic.model);
+	struct v { glm::mat4 a; glm::mat4 b; }aaa;
+	VkDeviceSize sz = sizeof(aaa);
 	m_Uniform = new UniformBuffer(context.device, sz, m_Allocator, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
+	//m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 
 
 	//
@@ -1137,7 +1148,7 @@ void window_size_callback(GLFWwindow* window, int width, int height)
 	}
 }
 
-void VulkanHPP::Update(float deltaTime)
+void VulkanHPP::Update(float dt)
 {
 	uint32_t index;
 
@@ -1169,7 +1180,7 @@ void VulkanHPP::Update(float deltaTime)
 		LOGE("Failed to present swapchain image.");
 	}
 
-	UpdateUniformBuffer();
+	UpdateUniformBuffer(dt);
 }
 
 vk::Result VulkanHPP::PresentImage(Context& context, uint32_t index)
