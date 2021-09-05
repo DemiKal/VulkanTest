@@ -1,12 +1,13 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#define VKB_DEBUG 1
 #define VK_USE_PLATFORM_WIN32_KHR 1
+#define VKB_VALIDATION_LAYERS
+#define VKB_DEBUG 1
 #define VMA_IMPLEMENTATION
 #define GLM_FORCE_RADIANS
-//#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define VKB_VALIDATION_LAYERS
-#define GLFW_DLL
-#define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+//#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_NONE
+//#define GLFW_DLL
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -70,14 +71,16 @@ struct Mesh
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
-void window_size_callback(GLFWwindow* window, int width, int height);
-
+void WindowSizeCallback(GLFWwindow* window, int width, int height);
+void KeyHandlerCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void MouseMoveHandler(GLFWwindow* window, double posx, double posy);
+void MouseHandler(GLFWwindow* window, int button, int action, int mods);
 
 struct UBO
 {
 	glm::mat4 proj;
 	//glm::mat4 view = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -2.5f));
+	glm::mat4 view;// = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -2.5f));
 }ubo_vs;
 
 void VulkanHPP::UpdateUniformBuffer(float dt)
@@ -85,9 +88,15 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 	static size_t tick = 0;
 	tick++;
 	float aspect = (float)m_Width / (float)m_Height;
-	if (aspect > 0)
-		ubo_vs.proj = glm::perspective(glm::radians(70.0f), aspect, 0.0f, 100.0f);
-	ubo_vs.view = glm::translate(ubo_vs.view, glm::vec3(0, 0, 0.1f) * dt);
+	//	if(aspect != m_Camera->m_AspectRatio)
+
+		//if (aspect > 0)
+		//ubo_vs.proj = glm::perspective(glm::radians(70.0f), aspect, 0.0f, 100.0f);
+
+		//ubo_vs.view = glm::translate(ubo_vs.view, glm::vec3(0, 0, 0.1f) * dt);
+	m_Camera->UpdateViewMatrix();
+	ubo_vs.proj = (m_Camera->m_Projection);
+	ubo_vs.view = (m_Camera->m_View);
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
 
@@ -194,18 +203,16 @@ class Nest
 #pragma endregion
 
 
-
+ 
 void VulkanHPP::Prepare()
 {
 	//camera.model = glm::mat4(1.0f);
 	//camera.view = glm::mat4(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)));
 	//auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
 	//camera.projection = glm::perspective(glm::radians(60.0f), aspect, 1.f, 256.f);
+	float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+	m_Camera = std::make_unique<Camera>(glm::vec3(0, 0, -2.5f), 70.0f, aspect, 0.01f, 100.0f);
 
-	//glm::persp
-	constexpr AttributeVariant  attr2 = PositionAttribute(2, 1, 3);
-	constexpr AttributeVariant  attr1 = ColorAttribute(2, 1, 3);
-	constexpr AttributeVariant  attr3 = TexCoordAttribute(2, 1);
 	Buffer vb;
 
 	vb.AddAttribute(PositionAttribute{});
@@ -289,10 +296,6 @@ void VulkanHPP::Prepare()
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
 	SelectPhysicalDeviceAndInstance(m_Context);
-
-	m_Context.swapchain_dimensions.width = m_Width;
-	m_Context.swapchain_dimensions.height = m_Height;
-
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
 	InitRenderPass(m_Context);
@@ -474,19 +477,18 @@ void VulkanHPP::InitUniformBuffer(Context& context)
 	//
 	//StageBuffer(context, UboBuffer, vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	//context.device.bindBufferMemory(UboBuffer.vkBuffer, UboBuffer.DeviceMemory, 0);
-
-	auto OBJECT_INSTANCES = 1;
-	size_t min_ubo_alignment = context.gpu.getProperties().limits.minUniformBufferOffsetAlignment;// get_device().get_gpu().get_properties().limits.minUniformBufferOffsetAlignment;
-	size_t dynamicAlignment = sizeof(glm::mat4);
-	if (min_ubo_alignment > 0)
-	{
-		dynamicAlignment = (dynamicAlignment + min_ubo_alignment - 1) & ~(min_ubo_alignment - 1);
-	}
-
-	size_t buffer_size = OBJECT_INSTANCES * dynamicAlignment;
-
+	//auto OBJECT_INSTANCES = 1;
+	//size_t min_ubo_alignment = context.gpu.getProperties().limits.minUniformBufferOffsetAlignment;// get_device().get_gpu().get_properties().limits.minUniformBufferOffsetAlignment;
+	//size_t dynamicAlignment = sizeof(glm::mat4);
+	//if (min_ubo_alignment > 0)
+	//{
+	//	dynamicAlignment = (dynamicAlignment + min_ubo_alignment - 1) & ~(min_ubo_alignment - 1);
+	//}
+	//
+	//size_t buffer_size = OBJECT_INSTANCES * dynamicAlignment;
 	//ubo_data_dynamic.model = (glm::mat4*)_aligned_malloc(buffer_size, dynamicAlignment);
 	//assert(ubo_data_dynamic.model);
+
 	struct v { glm::mat4 a; glm::mat4 b; }aaa;
 	VkDeviceSize sz = sizeof(aaa);
 	m_Uniform = new UniformBuffer(context.device, sz, m_Allocator, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -511,7 +513,7 @@ void VulkanHPP::InitVertices(Context& context)
 void VulkanHPP::InitWindow()
 {
 	vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
-		VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
+		VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_2);
 
 
 	glfwInit();
@@ -519,7 +521,11 @@ void VulkanHPP::InitWindow()
 
 	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_GLFWwindow, this);
-	glfwSetWindowSizeCallback(m_GLFWwindow, window_size_callback);
+	glfwSetWindowSizeCallback(m_GLFWwindow, WindowSizeCallback);
+	glfwSetKeyCallback(m_GLFWwindow, KeyHandlerCallback);
+	glfwSetCursorPosCallback(m_GLFWwindow, MouseMoveHandler);
+	glfwSetMouseButtonCallback(m_GLFWwindow, MouseHandler);
+
 }
 
 
@@ -947,7 +953,7 @@ void VulkanHPP::InitPipeline(Context& context)
 	// Specify rasterization state.
 	vk::PipelineRasterizationStateCreateInfo raster;
 	raster.cullMode = vk::CullModeFlagBits::eNone;
-	raster.frontFace = vk::FrontFace::eClockwise;
+	raster.frontFace = vk::FrontFace::eCounterClockwise;
 	raster.lineWidth = 1.0f;
 
 	// Our attachment will write to all color channels, but no blending is enabled.
@@ -1082,17 +1088,38 @@ void VulkanHPP::InitFrameBuffers(Context& context)
 
 void VulkanHPP::RunLoop()
 {
-	constexpr float deltaTime = 1.f / 60.f;
+	//constexpr float deltaTime = 1.f / 60.f;
+	float prevFrameTime = static_cast<float>(glfwGetTime());
+	float currentFrameTime = prevFrameTime;
+
 	while (!glfwWindowShouldClose(m_GLFWwindow))
 	{
 		glfwPollEvents();
-		Update(deltaTime);
+		prevFrameTime = currentFrameTime;
+		currentFrameTime = static_cast<float>(glfwGetTime());
+		float dt = (currentFrameTime - prevFrameTime);
+		HandleInput(dt);
+		//if (dt < 0.01) dt = 1.0f / 60.0f;
+		float ms = 1000.0f * dt;
+		float fps = 1000.0f / ms;
+		//glfwSetWindowTitle(m_GLFWwindow, fmt::format("ms: {:.1f}, fps: {:.1f}", ms, fps).c_str());
+		auto& pos = m_Camera->m_Position;
+		//glfwSetWindowTitle(m_GLFWwindow, fmt::format("pos: ({:.1f}, {:.1f}, {:.1f})", pos.x, pos.y, pos.z).c_str());
+		glfwSetWindowTitle(m_GLFWwindow, fmt::format("{}", m_MouseLeft).c_str());
+		
+
+		Update(dt);
+
+		//state reset
+		//m_MouseLeft = m_MouseRight = false;
+
 	}
 }
 
 
 
-void window_size_callback(GLFWwindow* window, int width, int height)
+
+void WindowSizeCallback(GLFWwindow* window, int width, int height)
 {
 	if (auto glfw_window = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
 
@@ -1184,9 +1211,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	cmd.bindIndexBuffer(triMesh.indexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
 
-
 	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
-	// Set viewport dynamically
 	cmd.setViewport(0, vp);
 
 	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
@@ -1272,20 +1297,6 @@ vk::Result VulkanHPP::AcquireNextImage(Context& context, uint32_t* image)
 
 	return vk::Result::eSuccess;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 vk::SurfaceKHR VulkanHPP::CreateSurface(vk::Instance instance, vk::PhysicalDevice)
 {
@@ -1580,3 +1591,33 @@ std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::Lay
 	// Else return nothing
 	return {};
 }
+
+
+void KeyHandlerCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	//if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
+	//{
+	//	if (action == GLFW_REPEAT) vulkanHPP->KeyPressed(key);
+	//	if (action == GLFW_RELEASE) vulkanHPP->KeyReleased(key);
+	//}
+}
+void MouseHandler(GLFWwindow* window, int button, int action, int mods) 
+{
+	if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
+	{
+		if(action == GLFW_PRESS) vulkanHPP->MousePress(button, mods);
+		if (action == GLFW_RELEASE) vulkanHPP->MouseRelease(button, mods);
+	}
+	 
+}
+
+void MouseMoveHandler(GLFWwindow* window, double posx, double posy) {
+	if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
+	{
+		LOGI(fmt::format("mouse moved at pos ({:.0f},{:.0f})",(float)posx,(float)posy));
+		float newX = static_cast<float>(posx);
+		float newY = static_cast<float>(posy);
+		vulkanHPP->MouseMoved(newX,newY);
+	}
+}
+
