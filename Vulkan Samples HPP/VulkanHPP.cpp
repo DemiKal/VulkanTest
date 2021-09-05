@@ -3,16 +3,16 @@
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #define VMA_IMPLEMENTATION
 #define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+//#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define VKB_VALIDATION_LAYERS
 #define GLFW_DLL
+#define GLFW_INCLUDE_VULKAN
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#define GLFW_INCLUDE_VULKAN
 
-#include "vk_mem_alloc.h"
 #include "VulkanHPP.h"
+#include "vk_mem_alloc.h"
 #include "vertexbuffer.h"
 #include <typeinfo>
 #include <variant>
@@ -76,7 +76,8 @@ void window_size_callback(GLFWwindow* window, int width, int height);
 struct UBO
 {
 	glm::mat4 proj;
-	glm::mat4 view = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+	//glm::mat4 view = glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -2.5f));
 }ubo_vs;
 
 void VulkanHPP::UpdateUniformBuffer(float dt)
@@ -84,12 +85,9 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 	static size_t tick = 0;
 	tick++;
 	float aspect = (float)m_Width / (float)m_Height;
-	ubo_vs.proj = glm::perspective(glm::radians(70.0f), aspect, 0.0f, 100.0f);
-	ubo_vs.view = glm::translate(ubo_vs.view, glm::vec3(0, 0.1f, 0) * dt);
-	// Fixed ubo with projection and view matrices
-	//ubo_vs.projection = camera.projection;
-	//ubo_vs.view = camera.view;
-	//
+	if (aspect > 0)
+		ubo_vs.proj = glm::perspective(glm::radians(70.0f), aspect, 0.0f, 100.0f);
+	ubo_vs.view = glm::translate(ubo_vs.view, glm::vec3(0, 0, 0.1f) * dt);
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
 
@@ -791,6 +789,9 @@ void VulkanHPP::InitSwapchain(Context& context)
 		composite = vk::CompositeAlphaFlagBitsKHR::ePostMultiplied;
 	}
 
+	//swapchain_size.width = swapchain_size.width == 0 ? 1 : swapchain_size.width ;
+	//swapchain_size.height = swapchain_size.height == 0 ? 1 : swapchain_size.height ;
+
 	vk::SwapchainCreateInfoKHR info;
 	info.surface = context.surface;
 	info.minImageCount = desired_swapchain_images;
@@ -1096,6 +1097,11 @@ void window_size_callback(GLFWwindow* window, int width, int height)
 	if (auto glfw_window = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
 
 	{
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
 		//auto& platform = glfw_window->get_platform();
 		glfw_window->Resize(width, height);
 		glfw_window->m_Width = width;
