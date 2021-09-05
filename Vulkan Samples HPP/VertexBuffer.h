@@ -31,76 +31,72 @@ struct UniformBuffer
 		VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_MAPPED_BIT) :
 		size{ size }
 	{
-		//m_vmaAllocator_ref = vmaAllocator;
-		//persistent = (flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
-		//
-		//VkBufferCreateInfo buffer_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-		//buffer_info.usage = buffer_usage;
-		//buffer_info.size = size;
-		//
-		//VmaAllocationCreateInfo memory_info{};
-		//memory_info.flags = flags;
-		//memory_info.usage = memory_usage;
-		//
-		//VmaAllocationInfo allocation_info{};
-		//auto              result = vmaCreateBuffer(vmaAllocator,
-		//	&buffer_info, &memory_info,
-		//	reinterpret_cast<VkBuffer*>(&handle), &allocation,
-		//	&allocation_info);
-		//
-		//if (result != VK_SUCCESS)
+		//struct ubo
 		//{
-		//	throw std::exception{ "Cannot create Buffer" };
-		//}
-		//
-		//memory = static_cast<vk::DeviceMemory>(allocation_info.deviceMemory);
-		//if (persistent)
-		//{
-		//	mapped_data = static_cast<uint8_t*>(allocation_info.pMappedData);
-		//}
-		//auto res = vmaMapMemory(vmaAllocator, allocation,   (void**)&mapped_data);
-		//device.bindBufferMemory(handle, memory, 0);
-		struct ubo
-		{
-			glm::mat4 proj;
-			glm::mat4 view;
-		}ubo;
+		//	glm::mat4 proj;
+		//	glm::mat4 view;
+		//}ubo;
+	   //
+		persistent = (flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
 
-		glm::mat4x4 model = glm::mat4x4(1.0f);
-		ubo.view =
-			glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-		ubo.proj  = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+		VkBufferCreateInfo buffer_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		buffer_info.usage = buffer_usage;
+		buffer_info.size = size;
+
+		VmaAllocationCreateInfo memory_info{};
+		memory_info.flags = flags;
+		memory_info.usage = memory_usage;
+
+		VmaAllocationInfo allocation_info{};
+		auto              result = vmaCreateBuffer(vmaAllocator,
+			&buffer_info, &memory_info,
+			reinterpret_cast<VkBuffer*>(&handle), &allocation,
+			&allocation_info);
+
+		if (result != VK_SUCCESS)
+		{
+			throw std::exception{ "Cannot create Buffer" };
+		}
+
+		memory = static_cast<vk::DeviceMemory>(allocation_info.deviceMemory);
+		if (persistent)
+		{
+			mapped_data = static_cast<uint8_t*>(allocation_info.pMappedData);
+		}
+		//auto res = vmaMapMemory(vmaAllocator, allocation, (void**)&mapped_data);
+		//device.bindBufferMemory(handle, memory, 0);
+		m_DescrBufferInfo = vk::DescriptorBufferInfo(handle, 0, VK_WHOLE_SIZE);
+		
+		//glm::mat4x4 model = glm::mat4x4(1.0f);
+		//ubo.view =
+		//	glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+		//ubo.proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 		// clang-format off
-		//glm::mat4x4 clip = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
+		//	glm::mat4x4 clip = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
 		//	0.0f, -1.0f, 0.0f, 0.0f,
 		//	0.0f, 0.0f, 0.5f, 0.0f,
 		//	0.0f, 0.0f, 0.5f, 1.0f);  // vulkan clip space has inverted y and half z !
 		//glm::mat4x4 mvpc = projection * view * model;
-
-	
-
-		vk::Buffer uniformDataBuffer = device.createBuffer(
-			vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(ubo), vk::BufferUsageFlagBits::eUniformBuffer));
-		handle = uniformDataBuffer;
-		vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(uniformDataBuffer);
-		uint32_t typeIndex = 8;
-		//uint32_t               typeIndex =
-		//	vk::su::findMemoryType(physicalDevice.getMemoryProperties(),
-		//		memoryRequirements.memoryTypeBits,
-		//		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-		vk::DeviceMemory uniformDataMemory =
-			device.allocateMemory(vk::MemoryAllocateInfo(memoryRequirements.size, typeIndex));
-		mapped_data = static_cast<uint8_t*>(device.mapMemory(uniformDataMemory, 0, memoryRequirements.size));
-		memcpy(mapped_data, &ubo, sizeof(ubo));
-		//device.unmapMemory(uniformDataMemory);
-
-		m_DescrBufferInfo.buffer = handle;
-		m_DescrBufferInfo.offset = 0;
-		m_DescrBufferInfo.range = VK_WHOLE_SIZE;
-
-		device.bindBufferMemory(uniformDataBuffer, uniformDataMemory, 0);
-
-
+		//vk::Buffer uniformDataBuffer = device.createBuffer(
+		//	vk::BufferCreateInfo(vk::BufferCreateFlags(), sizeof(ubo), vk::BufferUsageFlagBits::eUniformBuffer));
+		//handle = uniformDataBuffer;
+		//vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(uniformDataBuffer);
+		//uint32_t typeIndex = 8;
+		////uint32_t               typeIndex =
+		////	vk::su::findMemoryType(physicalDevice.getMemoryProperties(),
+		////		memoryRequirements.memoryTypeBits,
+		////		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+		//vk::DeviceMemory uniformDataMemory =
+		//	device.allocateMemory(vk::MemoryAllocateInfo(memoryRequirements.size, typeIndex));
+		//mapped_data = static_cast<uint8_t*>(device.mapMemory(uniformDataMemory, 0, memoryRequirements.size));
+		//memcpy(mapped_data, &ubo, sizeof(ubo));
+		////device.unmapMemory(uniformDataMemory);
+		//
+		//m_DescrBufferInfo.buffer = handle;
+		//m_DescrBufferInfo.offset = 0;
+		//m_DescrBufferInfo.range = VK_WHOLE_SIZE;
+		//
+		//device.bindBufferMemory(uniformDataBuffer, uniformDataMemory, 0);
 	}
 
 	template <class T>
@@ -115,7 +111,7 @@ struct UniformBuffer
 		if (persistent)
 		{
 			std::copy(data, data + size, mapped_data + offset);
-			//Flush(vmaAlloc);
+			Flush(vmaAlloc);
 		}
 		else
 		{

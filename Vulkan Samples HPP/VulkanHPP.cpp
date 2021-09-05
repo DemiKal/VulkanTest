@@ -5,42 +5,30 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define VKB_VALIDATION_LAYERS
-
-#include <tuple>
-#include "vk_mem_alloc.h"
-#include "VulkanHPP.h"
-#include <variant>
-#include <typeinfo>
-__pragma(warning(push, 0))
+#define GLFW_DLL
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-// #define TINYGLTF_NOEXCEPTION // optional. disable exception handling.
-#include "tiny_gltf.h"
 #define GLFW_INCLUDE_VULKAN
+
+#include "vk_mem_alloc.h"
+#include "VulkanHPP.h"
 #include "vertexbuffer.h"
-//#define GLM_FORCE_CTOR_INIT
-//#include <glm/glm.hpp>
+#include <typeinfo>
+#include <variant>
+#include <tuple>
 
-
-
+__pragma(warning(push, 0))
+#include "tiny_gltf.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-//#include <glm/ext/matrix_clip_space.hpp>
-
-#include <typeindex>
-#include <unordered_set>
-//#include <glm/fwd.hpp>
-#define GLFW_DLL
 #include <GLFW/glfw3.h>
-
 #include <iostream>
 #include <shaderc/shaderc.hpp>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-
 __pragma(warning(pop))
 
 
@@ -69,53 +57,21 @@ __pragma(warning(pop))
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
 
 
-//struct Camera
-//{
-//	glm::mat4 projection;
-//	glm::mat4 view;
-//	glm::mat4 model;
-//}camera;
-//
-//struct UboVS
-//{
-//	glm::mat4 projection;
-//	glm::mat4 view;
-//} ubo_vs;
-
-//struct UboDataDynamic
-//{
-//	glm::mat4* model = nullptr;
-//} ubo_data_dynamic;
-
-
-//Buffer UboBuffer;
-
 struct AllocatedBuffer {
 	VkBuffer _buffer;
 	VmaAllocation _allocation;
 };
+
 struct Mesh
 {
-	//AllocatedBuffer m_Buffer;
-	//std::vector<Vertex> vertexBuffer;
-	//std::vector<uint32_t> indexBuffer;
-
-	//Buffer<Vertex> vertexBuffer;
 	IndexBuffer indexBuffer;
 	Buffer vertexBuffer;
-
-	//Mesh(const std::vector<Vertex>& verts, const std::vector<uint32_t> indices) : vertexBuffer{ verts }, indexBuffer{ indices }{};
 };
+
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void window_size_callback(GLFWwindow* window, int width, int height);
 
-
-//template <class T>
-//void convert_and_update(const T& object, size_t offset = 0)
-//{
-//	update(reinterpret_cast<const uint8_t*>(&object), sizeof(T), offset);
-//}
 
 struct UBO
 {
@@ -191,52 +147,52 @@ class Nest
 };
 
 
-template <typename... Types>
-struct VertexDataOld
-{
-	//using Converted... = AttributeToType(Types)... ;
-	//static const  Attribs<Types...> attribs;
-	static constexpr int count = sizeof...(Types);
-	static constexpr std::array<int, count> byteSizes{ sizeof(Types)... };
-	static constexpr std::array<int, count> componentLenghts{ Types::length()... };
-
-	//static const inline std::array<VertexAttrib, count> Attributes{ AttributeToType<Types>()... };
-	//static const inline std::array<int, count> typeIndices = { std::index_sequence<Types...>() };
-	// static constexpr std::array<int, sizeof...(Types)> typeIndices = std::array{Types...};
-
-	template <class T, class Tuple>
-	struct Index;
-
-	template <class T, class... Types>
-	struct Index<T, std::tuple<T, Types...>> {
-		static const std::size_t value = 0;
-	};
-
-	template <class T, class U, class... Types>
-	struct Index<T, std::tuple<U, Types...>> {
-		static const std::size_t value = 1 + Index<T, std::tuple<Types...>>::value;
-	};
-	static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
-	static constexpr int stride = (sizeof(Types) + ...);
-	//static constexpr std::array< VertexAttrib, count> types = { AttributeToType<Types>() ... };
-	//static const size_t maxzzz = MAX(Types,...); //std::max( std::max(sizeof(Types)...));
-
-	static constexpr size_t validCount = (IsValid<Types>() + ...);
-	//static std::vector<int> as; //= { if constexpr (IsValid<Types>()) { IsValid<Types>() }   ... };
-
-	template<typename T>
-	static const T GetMeme(int i)
-	{
-		return __nth_element(i, Types...);
-	}
-
-	template<typename T>
-	static  constexpr int GetIndex()
-	{
-		return lookup.at(std::type_index{ typeid(T) });
-	}
-	operator std::string() const { return std::to_string(stride); }
-};
+//template <typename... Types>
+//struct VertexDataOld
+//{
+//	//using Converted... = AttributeToType(Types)... ;
+//	//static const  Attribs<Types...> attribs;
+//	static constexpr int count = sizeof...(Types);
+//	static constexpr std::array<int, count> byteSizes{ sizeof(Types)... };
+//	static constexpr std::array<int, count> componentLenghts{ Types::length()... };
+//
+//	//static const inline std::array<VertexAttrib, count> Attributes{ AttributeToType<Types>()... };
+//	//static const inline std::array<int, count> typeIndices = { std::index_sequence<Types...>() };
+//	// static constexpr std::array<int, sizeof...(Types)> typeIndices = std::array{Types...};
+//
+//	template <class T, class Tuple>
+//	struct Index;
+//
+//	template <class T, class... Types>
+//	struct Index<T, std::tuple<T, Types...>> {
+//		static const std::size_t value = 0;
+//	};
+//
+//	template <class T, class U, class... Types>
+//	struct Index<T, std::tuple<U, Types...>> {
+//		static const std::size_t value = 1 + Index<T, std::tuple<Types...>>::value;
+//	};
+//	//static const inline std::unordered_map<std::type_index, size_t> lookup{ {std::type_index{typeid(Types)}, Index<Types,std::tuple<Types...>>::value }  ... };
+//	//static constexpr int stride = (sizeof(Types) + ...);
+//	//static constexpr std::array< VertexAttrib, count> types = { AttributeToType<Types>() ... };
+//	//static const size_t maxzzz = MAX(Types,...); //std::max( std::max(sizeof(Types)...));
+//
+//	static constexpr size_t validCount = (IsValid<Types>() + ...);
+//	//static std::vector<int> as; //= { if constexpr (IsValid<Types>()) { IsValid<Types>() }   ... };
+//
+//	template<typename T>
+//	static const T GetMeme(int i)
+//	{
+//		return __nth_element(i, Types...);
+//	}
+//
+//	template<typename T>
+//	static  constexpr int GetIndex()
+//	{
+//		return lookup.at(std::type_index{ typeid(T) });
+//	}
+//	operator std::string() const { return std::to_string(stride); }
+//};
 #pragma endregion
 
 
