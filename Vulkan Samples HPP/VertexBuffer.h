@@ -391,7 +391,6 @@ public:
 	{
 		return  buffer.size() / TotalStride() * glm::uvec3::length();
 	}
-
 };
 
 // : VertexAttributes{ std::move(attr) } {}

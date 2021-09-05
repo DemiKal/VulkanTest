@@ -72,7 +72,6 @@ struct Mesh
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void WindowSizeCallback(GLFWwindow* window, int width, int height);
-void KeyHandlerCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void MouseMoveHandler(GLFWwindow* window, double posx, double posy);
 void MouseHandler(GLFWwindow* window, int button, int action, int mods);
 
@@ -202,8 +201,12 @@ class Nest
 //};
 #pragma endregion
 
+std::string LoadFile(const std::string& path)
+{
+	std::ifstream stream(path);
+	return  std::string((std::istreambuf_iterator<char>(stream)), (std::istreambuf_iterator<char>()));
+}
 
- 
 void VulkanHPP::Prepare()
 {
 	//camera.model = glm::mat4(1.0f);
@@ -522,7 +525,6 @@ void VulkanHPP::InitWindow()
 	m_GLFWwindow = glfwCreateWindow(m_Width, m_Height, "Vulkan 101", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_GLFWwindow, this);
 	glfwSetWindowSizeCallback(m_GLFWwindow, WindowSizeCallback);
-	glfwSetKeyCallback(m_GLFWwindow, KeyHandlerCallback);
 	glfwSetCursorPosCallback(m_GLFWwindow, MouseMoveHandler);
 	glfwSetMouseButtonCallback(m_GLFWwindow, MouseHandler);
 
@@ -932,6 +934,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 	context.render_pass = context.device.createRenderPass(rp_info);
 }
 
+
 void VulkanHPP::InitPipeline(Context& context)
 {
 	// Create a blank pipeline layout.
@@ -978,63 +981,26 @@ void VulkanHPP::InitPipeline(Context& context)
 
 	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
 
-	const std::string kShaderSource = R"vertexShader(
-	#version 450
 
-	layout(location = 0) in vec3 inPos;
-	layout(location = 1) in vec3 inColor;
-
-	layout(binding = 0) uniform UBO
-	{
-		mat4 projectionMatrix;
-		mat4 viewMatrix;
-	} ubo;
-
-	layout(location = 0) out vec3 outColor;
-
-	out gl_PerVertex
-	{
-		vec4 gl_Position;
-	};
-
-
-	void main()
-	{
-		outColor = inColor;
-		gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(inPos.xyz, 1.0);
-	}
-)vertexShader";
-
-	const std::string fragmentShader = R"fragmentShader(
-#version 450
-
-layout(location = 0) in vec3 in_color;
-
-layout(location = 0) out vec4 out_color;
-
-void main()
-{
-	out_color = vec4(in_color, 1.0);
-}
-
-)fragmentShader";
-
+	std::string vertexSource = LoadFile("../shaders/triangle.vert");
+	std::string fragmentSource = LoadFile("../shaders/triangle.frag");
+	  
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_performance);
 
 	shaderc::SpvCompilationResult vertShaderResult =
-		compiler.CompileGlslToSpv(kShaderSource, shaderc_glsl_vertex_shader, "vertex shader", options);
+		compiler.CompileGlslToSpv(vertexSource, shaderc_glsl_vertex_shader, "vertex shader", options);
 
 	auto vertStatus = vertShaderResult.GetCompilationStatus();
-	if (vertStatus != shaderc_compilation_status_success) { fmt::print(vertShaderResult.GetErrorMessage()); }
+	if (vertStatus != shaderc_compilation_status_success) { LOGE(vertShaderResult.GetErrorMessage()); }
 
 	auto vertShaderCode = std::vector<uint32_t>{ vertShaderResult.cbegin(), vertShaderResult.cend() };
 	auto vertSize = std::distance(vertShaderCode.begin(), vertShaderCode.end());
 	auto vertShaderCreateInfo = vk::ShaderModuleCreateInfo{ {}, vertSize * sizeof(uint32_t), vertShaderCode.data() };
 	auto vertexShaderModule = context.device.createShaderModule(vertShaderCreateInfo);
 
-	shaderc::SpvCompilationResult fragShaderModule = compiler.CompileGlslToSpv(fragmentShader, shaderc_glsl_fragment_shader, "fragment shader", options);
+	shaderc::SpvCompilationResult fragShaderModule = compiler.CompileGlslToSpv(fragmentSource, shaderc_glsl_fragment_shader, "fragment shader", options);
 	if (fragShaderModule.GetCompilationStatus() != shaderc_compilation_status_success) 	  fmt::print(fragShaderModule.GetErrorMessage());
 
 	auto fragShaderCode = std::vector<uint32_t>{ fragShaderModule.cbegin(), fragShaderModule.cend() };
@@ -1102,11 +1068,9 @@ void VulkanHPP::RunLoop()
 		//if (dt < 0.01) dt = 1.0f / 60.0f;
 		float ms = 1000.0f * dt;
 		float fps = 1000.0f / ms;
-		//glfwSetWindowTitle(m_GLFWwindow, fmt::format("ms: {:.1f}, fps: {:.1f}", ms, fps).c_str());
+		glfwSetWindowTitle(m_GLFWwindow, fmt::format("ms: {:.1f}, fps: {:.1f}", ms, fps).c_str());
 		auto& pos = m_Camera->m_Position;
 		//glfwSetWindowTitle(m_GLFWwindow, fmt::format("pos: ({:.1f}, {:.1f}, {:.1f})", pos.x, pos.y, pos.z).c_str());
-		glfwSetWindowTitle(m_GLFWwindow, fmt::format("{}", m_MouseLeft).c_str());
-		
 
 		Update(dt);
 
@@ -1555,7 +1519,6 @@ bool validate_layers(const std::vector<const char*>& required,
 	return (requiredButNotFoundIt == required.end());
 }
 
-
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers)
 {
 	std::vector<std::vector<const char*>> validation_layer_priority_list =
@@ -1592,32 +1555,21 @@ std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::Lay
 	return {};
 }
 
-
-void KeyHandlerCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	//if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
-	//{
-	//	if (action == GLFW_REPEAT) vulkanHPP->KeyPressed(key);
-	//	if (action == GLFW_RELEASE) vulkanHPP->KeyReleased(key);
-	//}
-}
-void MouseHandler(GLFWwindow* window, int button, int action, int mods) 
+void MouseHandler(GLFWwindow* window, int button, int action, int mods)
 {
 	if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
 	{
-		if(action == GLFW_PRESS) vulkanHPP->MousePress(button, mods);
+		if (action == GLFW_PRESS) vulkanHPP->MousePress(button, mods);
 		if (action == GLFW_RELEASE) vulkanHPP->MouseRelease(button, mods);
 	}
-	 
 }
 
 void MouseMoveHandler(GLFWwindow* window, double posx, double posy) {
 	if (VulkanHPP* vulkanHPP = reinterpret_cast<VulkanHPP*>(glfwGetWindowUserPointer(window)))
 	{
-		LOGI(fmt::format("mouse moved at pos ({:.0f},{:.0f})",(float)posx,(float)posy));
 		float newX = static_cast<float>(posx);
 		float newY = static_cast<float>(posy);
-		vulkanHPP->MouseMoved(newX,newY);
+		vulkanHPP->MouseMoved(newX, newY);
 	}
 }
 

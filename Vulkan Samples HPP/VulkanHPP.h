@@ -6,8 +6,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 
-struct GLFWwindow;
-
 struct Camera
 {
 	float m_FOV;
@@ -107,22 +105,6 @@ public:
 	//void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void UpdateUniformBuffer(float dt);
-	void KeyPressed(int key)
-	{
-		auto forward = glm::vec3(0, 0, 1);
-		auto up = glm::vec3(0, 1, 0);
-		auto right = glm::cross(up, forward);
-		right = 0.1f * right;
-
-		fmt::print("key W pressed!");
-
-		if (key == GLFW_KEY_W)  m_Camera->Move(glm::vec3(0, 0, 1));
-		if (key == GLFW_KEY_A)  m_Camera->Move(-right);
-		if (key == GLFW_KEY_S)  m_Camera->Move(glm::vec3(0, 0, -1));
-		if (key == GLFW_KEY_D)  m_Camera->Move(right);
-		if (key == GLFW_KEY_SPACE) m_Camera->Move(glm::vec3(0, 1, 0));
-		if (key == GLFW_KEY_C)  m_Camera->Move(glm::vec3(0, -1, 0));
-	}
 
 	void MouseRelease(int button, int mods)
 	{
@@ -135,6 +117,7 @@ public:
 		if (button == GLFW_MOUSE_BUTTON_1) m_MouseLeft |= true;
 		if (button == GLFW_MOUSE_BUTTON_2) m_MouseRight |= true;
 	}
+
 	void MouseMoved(const float newX, const float newY)
 	{
 		//int32_t dx = std::clamp((int32_t)(m_MousePos.x - newX), -1, 1);
