@@ -1,6 +1,10 @@
 #pragma once
 #include "vulkan.hpp"
-
+#include "vulkan_enums.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <GLFW/glfw3.h>
 
 
 struct SwapchainDimensions
@@ -31,10 +35,28 @@ struct PerFrame
 
 	int32_t queue_index;
 };
+struct Allocation {
+	vk::Device device;
+	vk::DeviceMemory memory;
+	vk::DeviceSize size{ 0 };
+	vk::DeviceSize alignment{ 0 };
+	vk::DeviceSize allocSize{ 0 };
+	void* mapped{ nullptr };
+	/** @brief Memory propertys flags to be filled by external source at buffer creation (to query at some later point) */
+	vk::MemoryPropertyFlags memoryPropertyFlags;
+};
 
+struct Image : Allocation
+{
+	vk::Image image;
+	vk::Extent3D extent;
+	vk::ImageView view;
+	vk::Sampler sampler;
+	vk::Format format{ vk::Format::eUndefined };
+};
 struct Context
 {
- 	Context&  operator= (const Context&) = delete;
+	Context& operator= (const Context&) = delete;
 	//Context(Context& other) = delete;
 	/// The Vulkan instance.
 	vk::Instance instance;
@@ -76,9 +98,9 @@ struct Context
 	 * The pipeline layout for resources.
 	 * Not used in this sample, but we still need to provide a dummy one.
 	 */
-	//vk::PipelineLayout pipeline_layout;
+	 //vk::PipelineLayout pipeline_layout;
 
-	/// The debug report callback.
+	 /// The debug report callback.
 	vk::DebugReportCallbackEXT debug_callback;
 
 	/// A set of semaphores that can be reused.
@@ -91,9 +113,21 @@ struct Context
 		vk::Fence _uploadFence;
 		vk::CommandPool _commandPool;
 	}m_UploadContext;
-
+	
+	vk::CommandPool GetCommandPool() const {
+		if (!m_UploadContext._commandPool) {
+		//	vk::CommandPoolCreateInfo cmdPoolInfo;
+		//	cmdPoolInfo.queueFamilyIndex = 0;//TODO: double check!queueIndices.graphics;
+		//	cmdPoolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+		//	auto _commandPool = device.createCommandPool(cmdPoolInfo);
+		//	//m_UploadContext._commandPool = *const_cast<  vk::CommandPool*>(&_commandPool);
+		}
+		return m_UploadContext._commandPool;
+	}
 	vk::DescriptorSetLayout descriptorSetLayout;
 	vk::PipelineLayout pipelineLayout;
 	vk::DescriptorPool descriptorPool;
 	vk::DescriptorSet descriptorSet;
 };
+
+

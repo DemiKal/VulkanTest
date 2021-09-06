@@ -14,17 +14,13 @@
 
 #include "VulkanHPP.h"
 #include "vk_mem_alloc.h"
-#include "vertexbuffer.h"
+#include "Mesh.h"
 #include <typeinfo>
 #include <variant>
 #include <tuple>
 #include <fstream>
-#include "Mesh.h"
 
 __pragma(warning(push, 0))
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <shaderc/shaderc.hpp>
@@ -36,33 +32,24 @@ __pragma(warning(pop))
 
 
 
-#define VK_CHECK(x)                                                 \
-	do                                                              \
-	{                                                               \
-		VkResult err = x;                                           \
-		if (err)                                                    \
-		{                                                           \
-			std::cout << "Detected Vulkan error: " << err << std::endl; \
-			 											\
-			abort();                                                \
-		}                                                           \
-	} while (0)
+
 
 
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
 
 
-struct AllocatedBuffer {
-	VkBuffer _buffer;
-	VmaAllocation _allocation;
-};
- 
+
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void WindowSizeCallback(GLFWwindow* window, int width, int height);
 void MouseMoveHandler(GLFWwindow* window, double posx, double posy);
 void MouseHandler(GLFWwindow* window, int button, int action, int mods);
+
+struct AllocatedBuffer {
+	VkBuffer _buffer;
+	VmaAllocation _allocation;
+};
 
 struct UBO
 {
@@ -87,9 +74,9 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 	ubo_vs.view = (m_Camera->m_View);
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
-  
- 
- 
+
+
+
 #pragma region templatememes
 template<auto N>
 struct TestExtraction {
@@ -221,7 +208,7 @@ void VulkanHPP::Prepare()
 	vb.AddElement(v2c);
 	//vb.AddElement(v3p);
 	//vb.AddElement(v3c);
-	 
+
 
 	vb.AddElement(BoneWeightAttribute{ 0.0f, 0.0f, 1.0f });
 	//vb.AddElement(BoneIndex(1, 2, 3));
@@ -243,9 +230,9 @@ void VulkanHPP::Prepare()
 
 	//meshManager.AddMesh(ib, vb);
 
-	
-	
-	meshManager.LoadFromFile("../Assets/ColoredBox.glb", aiPostProcessSteps::aiProcess_Triangulate);
+
+
+	meshManager.LoadFromFile("../Assets/ColoredCastle.glb", aiPostProcessSteps::aiProcess_Triangulate);
 
 	using T = BoneIndexAttribute;
 	auto* ptr = vb.GetAttribute<T>(0);
@@ -268,13 +255,14 @@ void VulkanHPP::Prepare()
 	//vb.emplace_back(attr3);
 	auto strd = vb.TotalStride();
 	auto& vb1 = vb.VertexAttributes[0];
- 
+
 	InitLogger();
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
 	SelectPhysicalDeviceAndInstance(m_Context);
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
+	SetupDepthStencil(m_Context);
 	InitRenderPass(m_Context);
 	InitAllocator(m_Context);
 	InitUniformBuffer(m_Context);
@@ -859,54 +847,115 @@ void VulkanHPP::InitSwapchain(Context& context)
 
 void VulkanHPP::InitRenderPass(Context& context)
 {
-	vk::AttachmentDescription attachment;
+	std::vector<vk::AttachmentDescription> attachments;
+	attachments.resize(2);
+
 	// Backbuffer format.
-	attachment.format = context.swapchain_dimensions.format;
+	attachments[0].format = context.swapchain_dimensions.format;
 	// Not multisampled.
-	attachment.samples = vk::SampleCountFlagBits::e1;
+	attachments[0].samples = vk::SampleCountFlagBits::e1;
 	// When starting the frame, we want tiles to be cleared.
-	attachment.loadOp = vk::AttachmentLoadOp::eClear;
+	attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
 	// When ending the frame, we want tiles to be written out.
-	attachment.storeOp = vk::AttachmentStoreOp::eStore;
+	attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
 	// Don't care about stencil since we're not using it.
-	attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+	attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
 
 	// The image layout will be undefined when the render pass begins.
-	attachment.initialLayout = vk::ImageLayout::eUndefined;
+	attachments[0].initialLayout = vk::ImageLayout::eUndefined;
 	// After the render pass is complete, we will transition to ePresentSrcKHR layout.
-	attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+	attachments[0].finalLayout = vk::ImageLayout::ePresentSrcKHR;
+	
+	//depth attachment
+	attachments[1].format = vk::Format::eD32SfloatS8Uint; //TODO: set this dynamically!
+	attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
+	attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
+	attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eClear;
+	attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	attachments[1].initialLayout = vk::ImageLayout::eUndefined;
+	attachments[1].finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+
+
 
 	// We have one subpass. This subpass has one color attachment.
 	// While executing this subpass, the attachment will be in attachment optimal layout.
-	vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+	//vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+	std::vector<vk::AttachmentReference> colorAttachmentReferences;
+	{
+		vk::AttachmentReference colorReference;
+		colorReference.attachment = 0;
+		colorReference.layout = vk::ImageLayout::eColorAttachmentOptimal;
+		colorAttachmentReferences.push_back(colorReference);
+	}
+	
+	vk::AttachmentReference depthReference;
+	depthReference.attachment = 1;
+	depthReference.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
 	// We will end up with two transitions.
 	// The first one happens right before we start subpass #0, where
 	// eUndefined is transitioned into eColorAttachmentOptimal.
 	// The final layout in the render pass attachment states ePresentSrcKHR, so we
 	// will get a final transition from eColorAttachmentOptimal to ePresetSrcKHR.
-	vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_ref);
-
+	//vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_ref,nullptr, &depthReference);
+	std::vector<vk::SubpassDescription> subpasses{
+	  {
+		  {}, vk::PipelineBindPoint::eGraphics,
+		  // Input attachment references
+		  0, nullptr,
+		  // Color / resolve attachment references
+		  (uint32_t)colorAttachmentReferences.size(), colorAttachmentReferences.data(), nullptr,
+		  // Depth stecil attachment reference,
+		  &depthReference,
+		  // Preserve attachments
+		  0, nullptr
+	  },
+	};
+	using vPSFB = vk::PipelineStageFlagBits;
+	using vAFB = vk::AccessFlagBits;
+	std::vector<vk::SubpassDependency> subpassDependencies{
+		{
+			0, VK_SUBPASS_EXTERNAL,
+			vPSFB::eColorAttachmentOutput, vPSFB::eBottomOfPipe,
+			vAFB::eColorAttachmentRead | vAFB::eColorAttachmentWrite, vAFB::eMemoryRead,
+			vk::DependencyFlagBits::eByRegion
+		},
+		{
+			VK_SUBPASS_EXTERNAL, 0,
+			vPSFB::eBottomOfPipe, vPSFB::eColorAttachmentOutput,
+			vAFB::eMemoryRead, vAFB::eColorAttachmentRead | vAFB::eColorAttachmentWrite,
+			vk::DependencyFlagBits::eByRegion
+		},
+	};
 	// Create a dependency to external events.
 	// We need to wait for the WSI semaphore to signal.
 	// Only pipeline stages which depend on eColorAttachmentOutput will
 	// actually wait for the semaphore, so we must also wait for that pipeline stage.
-	vk::SubpassDependency dependency;
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-
-	// Since we changed the image layout, we need to make the memory visible to
-	// color attachment to modify.
-	dependency.srcAccessMask = {};
-	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+	//old
+	//vk::SubpassDependency dependency;
+	//dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependency.dstSubpass = 0;
+	//dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	//dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	//
+	//// Since we changed the image layout, we need to make the memory visible to
+	//// color attachment to modify.
+	//dependency.srcAccessMask = {};
+	//dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
 
 	// Finally, create the renderpass.
-	vk::RenderPassCreateInfo rp_info({}, attachment, subpass, dependency);
+	//vk::RenderPassCreateInfo rp_info({}, attachments, subpass, dependency);
+	vk::RenderPassCreateInfo renderPassInfo;
+	renderPassInfo.attachmentCount = (uint32_t)attachments.size();
+	renderPassInfo.pAttachments = attachments.data();
+	renderPassInfo.subpassCount = (uint32_t)subpasses .size();
+	renderPassInfo.pSubpasses = subpasses.data();
+	renderPassInfo.dependencyCount = (uint32_t)subpassDependencies.size();
+	renderPassInfo.pDependencies = subpassDependencies.data();
 
-	context.render_pass = context.device.createRenderPass(rp_info);
+	context.render_pass = context.device.createRenderPass(renderPassInfo);
 }
 
 
@@ -959,7 +1008,7 @@ void VulkanHPP::InitPipeline(Context& context)
 
 	std::string vertexSource = LoadFile("../Assets/shaders/triangle.vert");
 	std::string fragmentSource = LoadFile("../Assets/shaders/triangle.frag");
-	  
+
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
 	options.SetOptimizationLevel(shaderc_optimization_level_performance);
@@ -1016,13 +1065,25 @@ void VulkanHPP::InitFrameBuffers(Context& context)
 {
 	vk::Device device = context.device;
 
+	// Depth/Stencil attachment is the same for all frame buffers
 	// Create framebuffer for each swapchain image view
 	for (auto& image_view : context.swapchain_image_views)
 	{
 		// Build the framebuffer.
-		vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+		//old: vk::FramebufferCreateInfo fb_info({}, context.render_pass, image_view, context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1);
+		vk::ImageView attachments[2];
+		attachments[0] = image_view;
+		attachments[1] = m_DepthStencil.view;
 
-		context.swapchain_framebuffers.push_back(device.createFramebuffer(fb_info));
+		vk::FramebufferCreateInfo framebufferCreateInfo;
+		framebufferCreateInfo.renderPass = context.render_pass;
+		framebufferCreateInfo.attachmentCount = 2;
+		framebufferCreateInfo.pAttachments = attachments;
+		framebufferCreateInfo.width = context.swapchain_dimensions.width;
+		framebufferCreateInfo.height =  context.swapchain_dimensions.height;
+		framebufferCreateInfo.layers = 1;
+		 
+		context.swapchain_framebuffers.push_back(device.createFramebuffer(framebufferCreateInfo));
 	}
 }
 
@@ -1132,12 +1193,28 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	cmd.begin(begin_info);
 
 	// Set clear color values.
-	vk::ClearValue clear_value;
-	clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
+	//vk::ClearValue clear_value;
+	//clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
+	std::vector< vk::ClearValue> clearValues =
+	{
+		vk::ClearValue(vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }))),
+		vk::ClearDepthStencilValue{ 1.0f, 0 }
+	};
 
 	// Begin the render pass.
-	vk::RenderPassBeginInfo rp_begin(context.render_pass, framebuffer, { {0, 0}, {context.swapchain_dimensions.width, context.swapchain_dimensions.height} },
-		clear_value);
+	vk::RenderPassBeginInfo rp_begin;
+	//(
+	//	context.render_pass,
+	//	framebuffer, 
+	//	{ {0, 0},
+	//	{context.swapchain_dimensions.width,
+	//	context.swapchain_dimensions.height} },
+	// 	clear_value);
+	rp_begin.renderPass = context.render_pass;
+	rp_begin.renderArea.extent = vk::Extent2D{ context.swapchain_dimensions.width,	context.swapchain_dimensions.height };
+	rp_begin.clearValueCount = clearValues.size();
+	rp_begin.pClearValues =  clearValues.data();
+	rp_begin.framebuffer = framebuffer;
 	// We will add draw commands in the same command buffer.
 	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
 
