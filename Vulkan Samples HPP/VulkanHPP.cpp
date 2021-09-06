@@ -982,8 +982,8 @@ void VulkanHPP::InitPipeline(Context& context)
 	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
 
 
-	std::string vertexSource = LoadFile("../shaders/triangle.vert");
-	std::string fragmentSource = LoadFile("../shaders/triangle.frag");
+	std::string vertexSource = LoadFile("../Assets/shaders/triangle.vert");
+	std::string fragmentSource = LoadFile("../Assets/shaders/triangle.frag");
 	  
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
