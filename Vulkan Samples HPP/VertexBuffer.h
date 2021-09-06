@@ -169,12 +169,12 @@ struct TexCoordAttribute : VertexAttributeNew<glm::vec2> { INHERIT_CONSTRUCTOR }
 struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
-struct BoneWeight : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
-struct BoneIndex : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_CONSTRUCTOR };
+struct BoneWeightAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
+struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_CONSTRUCTOR };
 
 //template <typename N, template<class...> class V>
 //template <int N>
-struct Indices : VertexAttributeNew <glm::uvec3>
+struct IndexAttribute : VertexAttributeNew <glm::uvec3>
 {
 	INHERIT_CONSTRUCTOR
 };
@@ -201,7 +201,7 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, Indices ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneWeight, BoneIndex
+#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, IndexAttribute ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
 
 
@@ -382,7 +382,7 @@ public:
 	IndexBuffer()
 	{
 		//Buffer(Indices)
-		AddAttribute(Indices{});
+		AddAttribute(IndexAttribute{});
 		Finalize();
 	}
 

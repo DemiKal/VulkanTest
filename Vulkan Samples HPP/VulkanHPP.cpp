@@ -18,29 +18,22 @@
 #include <typeinfo>
 #include <variant>
 #include <tuple>
+#include <fstream>
+#include "Mesh.h"
 
 __pragma(warning(push, 0))
-#include "tiny_gltf.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <shaderc/shaderc.hpp>
-#include <fmt/format.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 __pragma(warning(pop))
 
+#include "Logger.hpp"
 
-#define LOGGER_FORMAT "[%^%l%$] %v"
-#define ROOT_PATH_SIZE 48
-#define __FILENAME__ (static_cast<const char *>(__FILE__) + ROOT_PATH_SIZE)
 
-#define LOGI(...) spdlog::info(__VA_ARGS__);
-#define LOGW(...) spdlog::warn(__VA_ARGS__);
-#define LOGE(...) spdlog::error("[{}:{}] {}", __FILENAME__, __LINE__, fmt::format(__VA_ARGS__));
-#define LOGD(...) spdlog::debug(__VA_ARGS__);
+
 
 #define VK_CHECK(x)                                                 \
 	do                                                              \
@@ -62,12 +55,7 @@ struct AllocatedBuffer {
 	VkBuffer _buffer;
 	VmaAllocation _allocation;
 };
-
-struct Mesh
-{
-	IndexBuffer indexBuffer;
-	Buffer vertexBuffer;
-};
+ 
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
@@ -98,21 +86,9 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 	ubo_vs.view = (m_Camera->m_View);
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
-
-int LoadModel()
-{
-	std::string filename = "../Assets/DamagedHelmet.glb";
-	//using namespace tinygltf;
-
-	tinygltf::Model model;
-
-	return 0;
-}
-
-
+  
 static Mesh triMesh;
-
-
+ 
 #pragma region templatememes
 template<auto N>
 struct TestExtraction {
@@ -244,12 +220,9 @@ void VulkanHPP::Prepare()
 	vb.AddElement(v2c);
 	//vb.AddElement(v3p);
 	//vb.AddElement(v3c);
+	 
 
-
-
-
-
-	vb.AddElement(BoneWeight{ 0.0f, 0.0f, 1.0f });
+	vb.AddElement(BoneWeightAttribute{ 0.0f, 0.0f, 1.0f });
 	//vb.AddElement(BoneIndex(1, 2, 3));
 	//vb.AddElement(BoneIndex(4, 5, 6));
 	//interleave!
@@ -264,7 +237,7 @@ void VulkanHPP::Prepare()
 	auto b4 = vb.GetAttribute<ColorAttribute>(3);
 
 	IndexBuffer ib;
-	ib.AddElement(Indices{ 0 , 1 , 2 });
+	ib.AddElement(IndexAttribute{ 0 , 1 , 2 });
 	//ib.AddElement(Indices{2 , 3 , 0});
 
 	triMesh.vertexBuffer = vb;
@@ -272,7 +245,7 @@ void VulkanHPP::Prepare()
 
 
 
-	using T = BoneIndex;
+	using T = BoneIndexAttribute;
 	auto* ptr = vb.GetAttribute<T>(0);
 	if (ptr)
 	{
@@ -285,7 +258,7 @@ void VulkanHPP::Prepare()
 
 		*vvv = T(100, 128, 256);;
 	}
-	auto* ptr2 = vb.GetAttribute<BoneIndex>(0);
+	auto* ptr2 = vb.GetAttribute<BoneIndexAttribute>(0);
 
 
 	//vb.emplace_back(attr1);
@@ -293,8 +266,7 @@ void VulkanHPP::Prepare()
 	//vb.emplace_back(attr3);
 	auto strd = vb.TotalStride();
 	auto& vb1 = vb.VertexAttributes[0];
-
-	LoadModel();
+ 
 	InitLogger();
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});

@@ -39,7 +39,7 @@ struct Camera
 
 		transM = glm::translate(glm::mat4(1.0f), m_Position);
 
-		m_View = rotM * transM;
+		m_View = transM*rotM  ;
 	}
 
 	void Move(glm::vec3 translation)
