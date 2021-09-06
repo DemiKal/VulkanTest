@@ -102,7 +102,19 @@ public:
 	//void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void UpdateUniformBuffer(float dt);
-	
+	void SetupRenderPassBeginInfo(Context& context)
+	{
+		m_ClearValues.clear();
+		m_ClearValues.push_back(vk::ClearValue(std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f}));
+		m_ClearValues.push_back(vk::ClearDepthStencilValue{ 1.0f, 0 });
+
+		m_RenderPassBeginInfo = vk::RenderPassBeginInfo();
+		m_RenderPassBeginInfo.renderPass = context.render_pass;
+		m_RenderPassBeginInfo.renderArea.extent = vk::Extent2D{ context.swapchain_dimensions.width,context.swapchain_dimensions.height };
+		m_RenderPassBeginInfo.clearValueCount = (uint32_t)m_ClearValues.size();
+		m_RenderPassBeginInfo.pClearValues = m_ClearValues.data();
+	}
+
 	void SetupDepthStencil(Context& context)
 	{
 		auto depthFormat = vk::Format::eD32SfloatS8Uint; //TODO: QUERY AND CHOOSE ONE
@@ -185,6 +197,7 @@ public:
 		m_Context.queue.waitIdle();
 		m_Context.device.waitIdle();
 	}
+
 	Image CreateImage(const vk::ImageCreateInfo& imageCreateInfo, //todo: add context?
 		const vk::MemoryPropertyFlags& memoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal)   
 	{
@@ -337,6 +350,8 @@ public:
 	Context m_Context;
 	glm::vec2 m_MousePos;
 	std::unique_ptr<Camera> m_Camera;
+	std::vector<vk::ClearValue> m_ClearValues;
+	vk::RenderPassBeginInfo m_RenderPassBeginInfo;
 	int m_Width = 1024;
 	int m_Height = 768;
 	bool m_MouseLeft = false;

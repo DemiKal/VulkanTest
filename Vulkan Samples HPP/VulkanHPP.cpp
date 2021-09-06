@@ -264,6 +264,7 @@ void VulkanHPP::Prepare()
 	InitSwapchain(m_Context);
 	SetupDepthStencil(m_Context);
 	InitRenderPass(m_Context);
+	SetupRenderPassBeginInfo(m_Context);
 	InitAllocator(m_Context);
 	InitUniformBuffer(m_Context);
 	InitDescriptorPool(m_Context);
@@ -996,7 +997,12 @@ void VulkanHPP::InitPipeline(Context& context)
 
 	// Disable all depth testing.
 	vk::PipelineDepthStencilStateCreateInfo depth_stencil;
-
+	depth_stencil.depthTestEnable = VK_TRUE;
+	depth_stencil.depthWriteEnable = VK_TRUE;
+	depth_stencil.depthCompareOp = vk::CompareOp::eLess;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil.stencilTestEnable = VK_FALSE;
+	
 	// No multisampling.
 	vk::PipelineMultisampleStateCreateInfo multisample({}, vk::SampleCountFlagBits::e1);
 
@@ -1195,14 +1201,14 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	// Set clear color values.
 	//vk::ClearValue clear_value;
 	//clear_value.color = vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }));
-	std::vector< vk::ClearValue> clearValues =
-	{
-		vk::ClearValue(vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }))),
-		vk::ClearDepthStencilValue{ 1.0f, 0 }
-	};
+	//std::vector< vk::ClearValue> clearValues =
+	//{
+	//	vk::ClearValue(vk::ClearColorValue(std::array<float, 4>({ {0.1f, 0.1f, 0.2f, 1.0f} }))),
+	//	vk::ClearDepthStencilValue{ 1.0f, 0 }
+	//};
 
 	// Begin the render pass.
-	vk::RenderPassBeginInfo rp_begin;
+	//vk::RenderPassBeginInfo rp_begin;
 	//(
 	//	context.render_pass,
 	//	framebuffer, 
@@ -1210,13 +1216,16 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	//	{context.swapchain_dimensions.width,
 	//	context.swapchain_dimensions.height} },
 	// 	clear_value);
-	rp_begin.renderPass = context.render_pass;
-	rp_begin.renderArea.extent = vk::Extent2D{ context.swapchain_dimensions.width,	context.swapchain_dimensions.height };
-	rp_begin.clearValueCount = clearValues.size();
-	rp_begin.pClearValues =  clearValues.data();
-	rp_begin.framebuffer = framebuffer;
+	//rp_begin.renderPass = context.render_pass;
+	//rp_begin.renderArea.extent = vk::Extent2D{ context.swapchain_dimensions.width,	context.swapchain_dimensions.height };
+	//rp_begin.clearValueCount = clearValues.size();
+	//rp_begin.pClearValues =  clearValues.data();
+	//vk::RenderPassBeginInfo
+
+	//rp_begin.framebuffer = framebuffer; 
 	// We will add draw commands in the same command buffer.
-	cmd.beginRenderPass(rp_begin, vk::SubpassContents::eInline);
+	m_RenderPassBeginInfo.framebuffer = framebuffer;
+	cmd.beginRenderPass(m_RenderPassBeginInfo, vk::SubpassContents::eInline);
 
 	cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, context.pipelineLayout, 0, context.descriptorSet, nullptr);
 
