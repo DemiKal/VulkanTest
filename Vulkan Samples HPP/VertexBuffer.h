@@ -7,6 +7,7 @@
 #include "vk_mem_alloc.h"
 //#include "VulkanHPP.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include "logger.hpp"
 
 struct Context;
 struct UniformBuffer
@@ -227,7 +228,7 @@ struct Buffer //: private std::vector<std::byte>
 
 	void AddAttribute(const AttributeVariant& a)
 	{
-		if (m_IsFinalized) { fmt::print("Buffer is finalized!"); return; }
+		if (m_IsFinalized) { LOGE("Buffer is finalized!"); return; }
 
 
 		VertexAttributes.push_back(a);

@@ -266,25 +266,31 @@ Mesh::Mesh(
 	//VertexBufferLayout vbLayout;
 	unsigned int stride = 0;
 	//this->m_VertexBufferLayout
-	bool pos, norm, tex, tangents, colors, bones = false;
+	bool pos, norm, tex, tangents, colors, bones;
+	pos = norm = tex = tangents = colors = bones = false;
+
 	if (pos = mesh->HasPositions())
-		vertexBuffer.AddAttribute(PositionAttribute{});
+		m_VertexBuffer.AddAttribute(PositionAttribute{});
 	if (norm = mesh->HasNormals())
-		vertexBuffer.AddAttribute(NormalAttribute{});
+	{
+		//m_VertexBuffer.AddAttribute(NormalAttribute{});
+	}
 	if (tex = mesh->HasTextureCoords(0))
-		vertexBuffer.AddAttribute(TexCoordAttribute{});
+	{
+		//m_VertexBuffer.AddAttribute(TexCoordAttribute{});
+	}
 	if (tangents = mesh->HasTangentsAndBitangents())
 	{
-		vertexBuffer.AddAttribute(TangentAttribute{});
-		vertexBuffer.AddAttribute(BitangentAttribute{});
+		//vertexBuffer.AddAttribute(TangentAttribute{});
+		//vertexBuffer.AddAttribute(BitangentAttribute{});
 	}
 	if (colors = mesh->HasVertexColors(0))
-		vertexBuffer.AddAttribute(ColorAttribute{});
+		m_VertexBuffer.AddAttribute(ColorAttribute{});
 
 	if (bones = mesh->HasBones())
 	{
-		vertexBuffer.AddAttribute(BoneIndexAttribute{});
-		vertexBuffer.AddAttribute(BoneWeightAttribute{});
+		//vertexBuffer.AddAttribute(BoneIndexAttribute{});
+		//vertexBuffer.AddAttribute(BoneWeightAttribute{});
 	}
 
 	const unsigned int morphTargetCount = mesh->mNumAnimMeshes;
@@ -302,7 +308,7 @@ Mesh::Mesh(
 	//	}
 	//}
 
-	vertexBuffer.Finalize();
+	m_VertexBuffer.Finalize();
 
 	//finally create vertex buffer
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
@@ -310,15 +316,30 @@ Mesh::Mesh(
 		if (pos)
 		{
 			auto position = PositionAttribute(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-			vertexBuffer.AddElement(position);
+			m_VertexBuffer.AddElement(position);
 		}
 
 		if (colors)
 		{
-			float r = mesh->mColors[i]->r;
-			float g = mesh->mColors[i]->g;
-			float b = mesh->mColors[i]->b;
-			vertexBuffer.AddElement(ColorAttribute(r,g,b));
+			auto color = mesh->mColors[0][i];
+			float r = color.r;
+			float g = color.g;
+			float b = color.b;
+			float a = color.a;
+			if (std::isnan(r) || std::isnan(g) || std::isnan(b) || std::isnan(a))
+			{
+				using T = unsigned short;
+				constexpr auto offset = sizeof(T);
+				T* ptrR = reinterpret_cast<T*>(&color.r);
+				T* ptrG = reinterpret_cast<T*>(&color.r) + 1;
+				T* ptrB = reinterpret_cast<T*>(&color.r) + 2;
+
+				r = static_cast<float>(*ptrR) / std::numeric_limits<T>::max();
+				g = static_cast<float>(*ptrG) / std::numeric_limits<T>::max();
+				b = static_cast<float>(*ptrB) / std::numeric_limits<T>::max();
+			}
+
+ 			m_VertexBuffer.AddElement(ColorAttribute(r, g, b));
 		}
 
 		//if (norm)
@@ -362,7 +383,7 @@ Mesh::Mesh(
 		//}
 
 	}
-	
+
 	// now walk through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex m_Indices.
 	for (uint32_t i = 0; i < mesh->mNumFaces; i++)
 	{
@@ -374,8 +395,7 @@ Mesh::Mesh(
 			faceIndices[j] = face.mIndices[j];
 		}
 
-		indexBuffer.AddAttribute(IndexAttribute(faceIndices[0], faceIndices[1], faceIndices[2]));
-
+		m_IndexBuffer.AddElement(IndexAttribute(faceIndices[0], faceIndices[1], faceIndices[2]));
 	}
 
 
@@ -410,8 +430,8 @@ Mesh::Mesh(
 	//		m_UVs.emplace_back(face);
 	//
 	//	}
-	 
- 	// process materials
+
+	// process materials
 	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 	// we assume a convention for sampler names in the shaders. Each diffuse texture should be named
 	// as 'texture_diffuseN' where N is a sequential number ranging from 1 to MAX_SAMPLER_NUMBER. 

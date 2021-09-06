@@ -7,10 +7,17 @@
 
 struct Mesh
 {
-	IndexBuffer indexBuffer;
-	Buffer vertexBuffer;
+	IndexBuffer m_IndexBuffer;
+	Buffer m_VertexBuffer;
 
 	Mesh(const aiMesh* mesh, const aiScene* scene, const std::string& directory);
 	Mesh() = default;
+	Mesh(IndexBuffer& indexBuffer, Buffer vertexBuffer)
+	{
+		m_IndexBuffer = indexBuffer;
+		m_VertexBuffer = vertexBuffer;
+	}
 };
+
+
 

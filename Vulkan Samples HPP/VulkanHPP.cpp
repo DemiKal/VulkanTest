@@ -31,6 +31,7 @@ __pragma(warning(push, 0))
 __pragma(warning(pop))
 
 #include "Logger.hpp"
+#include "MeshManager.h"
 
 
 
@@ -87,7 +88,7 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 	m_Uniform->convert_and_update(m_Allocator, ubo_vs);
 }
   
-static Mesh triMesh;
+ 
  
 #pragma region templatememes
 template<auto N>
@@ -176,7 +177,7 @@ class Nest
 //	operator std::string() const { return std::to_string(stride); }
 //};
 #pragma endregion
-
+MeshManager  meshManager;
 std::string LoadFile(const std::string& path)
 {
 	std::ifstream stream(path);
@@ -240,10 +241,11 @@ void VulkanHPP::Prepare()
 	ib.AddElement(IndexAttribute{ 0 , 1 , 2 });
 	//ib.AddElement(Indices{2 , 3 , 0});
 
-	triMesh.vertexBuffer = vb;
-	triMesh.indexBuffer = ib;
+	//meshManager.AddMesh(ib, vb);
 
-
+	
+	
+	meshManager.LoadFromFile("../Assets/ColoredBox.glb", aiPostProcessSteps::aiProcess_Triangulate);
 
 	using T = BoneIndexAttribute;
 	auto* ptr = vb.GetAttribute<T>(0);
@@ -481,8 +483,9 @@ void VulkanHPP::InitUniformBuffer(Context& context)
 
 void VulkanHPP::InitVertices(Context& context)
 {
-	StageBuffer(context, triMesh.vertexBuffer, vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
-	StageBuffer(context, triMesh.indexBuffer, vk::BufferUsageFlagBits::eIndexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	auto& triMesh = meshManager.GetMesh(0);
+	StageBuffer(context, triMesh.m_VertexBuffer, vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	StageBuffer(context, triMesh.m_IndexBuffer, vk::BufferUsageFlagBits::eIndexBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 void VulkanHPP::InitWindow()
@@ -915,11 +918,11 @@ void VulkanHPP::InitPipeline(Context& context)
 
 
 	vk::PipelineVertexInputStateCreateInfo vertexInput;
-
-	auto bindingDescriptions = triMesh.vertexBuffer.GetVertexInputBindingDescriptions();
+	auto& triMesh = meshManager.GetMesh(0);
+	auto bindingDescriptions = triMesh.m_VertexBuffer.GetVertexInputBindingDescriptions();
 	vertexInput.setVertexBindingDescriptions({ (uint32_t)bindingDescriptions.size(), bindingDescriptions.data() });
 
-	auto attributeDescriptions = triMesh.vertexBuffer.GetVertexInputAttributeDescriptions();
+	auto attributeDescriptions = triMesh.m_VertexBuffer.GetVertexInputAttributeDescriptions();
 	vertexInput.setVertexAttributeDescriptions({ (uint32_t)attributeDescriptions.size(), attributeDescriptions.data() });
 
 	// Specify we will use triangle lists to draw geometry.
@@ -1141,11 +1144,12 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, context.pipelineLayout, 0, context.descriptorSet, nullptr);
 
 	// Bind the graphics pipeline.
+	auto& triMesh = meshManager.GetMesh(0);
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
-	vk::Buffer buffer{ triMesh.vertexBuffer.vkBuffer };
+	vk::Buffer buffer{ triMesh.m_VertexBuffer.vkBuffer };
 	cmd.bindVertexBuffers(0, buffer, { 0 });
 
-	cmd.bindIndexBuffer(triMesh.indexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
+	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
 
 	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
 	cmd.setViewport(0, vp);
@@ -1156,8 +1160,8 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	// Draw three vertices with one instance.
 	//cmd.draw(3, 1, 0, 0);
-	size_t vertexCount = triMesh.vertexBuffer.GetVertexCount();
-	size_t indexCount = triMesh.indexBuffer.GetVertexCount();
+	size_t vertexCount = triMesh.m_VertexBuffer.GetVertexCount();
+	size_t indexCount = triMesh.m_IndexBuffer.GetVertexCount();
 
 	cmd.drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
 

@@ -1,6 +1,6 @@
 #include "MeshManager.h"
 #include <optional>
-
+#include <assimp/version.h>
 
 void MeshManager::ProcessNode(
 	const aiNode* node,
@@ -24,33 +24,30 @@ void MeshManager::ProcessNode(
 
 std::optional<uint32_t> MeshManager::LoadFromFile(const std::string& path, const aiPostProcessSteps loadFlags)
 {
-	Assimp::Importer import;
-	const auto standardFlags = aiProcess_GenSmoothNormals | aiProcess_GenBoundingBoxes;
-	const auto flagsComposed = standardFlags | loadFlags;
-
-	const aiScene* scene = import.ReadFile(path, flagsComposed);
+	Assimp::Importer importer;
+	
+	const auto standardFlags = aiProcess_GenBoundingBoxes;
+	const auto flagsComposed =  loadFlags;
+	
+	const aiScene* scene = importer.ReadFile(path, flagsComposed);
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
-		fmt::print("ERROR::ASSIMP\n", import.GetErrorString());
+		fmt::print("ERROR::ASSIMP\n", importer.GetErrorString());
 		return std::nullopt;
 	}
 
 	const std::string directory = path.substr(0, path.find_last_of('/'));
 
-	MeshManager& instance = GetInstance();
-	const uint32_t idx = instance.m_Meshes.size();	//TODO: make indexing work with multiple meshes loaded
-	instance.ProcessNode(scene->mRootNode, scene, directory);
+ 
+	const uint32_t idx =  m_Meshes.size();	//TODO: make indexing work with multiple meshes loaded
+	 ProcessNode(scene->mRootNode, scene, directory);
 
 	//TODO: delete scene?;
 	return idx; //TODO: use std optional?
 }
 
-std::tuple<uint32_t, uint32_t> MeshManager::GetLineBuffer()
-{
-	auto& i = GetInstance();
-	return { i.m_LineVAO, i.m_LineVBO };
-}
+ 
 
 MeshManager::MeshManager()
 {
@@ -107,27 +104,7 @@ void MeshManager::CreateSkyBoxCube()
 	}; 
 }
 
-MeshManager& MeshManager::GetInstance()
-{
-	static MeshManager instance;
-
-	return instance;
-}
-
-uint32_t MeshManager::GetLineVAO()
-{
-	return m_LineVAO;
-}
-
   
-void MeshManager::Init()
-{
-	//TODO: fix for release mode?
-	MeshManager& instance = GetInstance();
-	fmt::print("Mesh manager Instance initialized!");
-}
- 
-
 void MeshManager::CreateCubeWireframePrimitive()
 {
 	std::vector<float> cubeVertices = {
@@ -211,14 +188,12 @@ void MeshManager::CreateCubePrimitive()
 
 Mesh& MeshManager::GetMesh(const int i)
 {
-	return GetInstance().m_Meshes[i];
+	return m_Meshes[i];
 }
 
-void MeshManager::CreatePlanePrimitive()
-{
-}
+ 
 
 std::vector<Mesh>& MeshManager::GetMeshes()
 {
-	return GetInstance().m_Meshes;
+	return  m_Meshes;
 }
