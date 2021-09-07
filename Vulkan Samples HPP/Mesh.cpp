@@ -316,7 +316,7 @@ Mesh::Mesh(
 		if (pos)
 		{
 			auto position = PositionAttribute(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-			m_VertexBuffer.AddElement(position);
+			m_VertexBuffer.AddElement< PositionAttribute>(position);
 		}
 
 		if (colors)
@@ -339,7 +339,7 @@ Mesh::Mesh(
 				b = static_cast<float>(*ptrB) / std::numeric_limits<T>::max();
 			}
 
- 			m_VertexBuffer.AddElement(ColorAttribute(r, g, b));
+			m_VertexBuffer.AddElement<ColorAttribute>(r, g, b);
 		}
 
 		//if (norm)
@@ -385,17 +385,17 @@ Mesh::Mesh(
 	}
 
 	// now walk through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex m_Indices.
+	std::array<uint32_t, 3> faceIndices;
 	for (uint32_t i = 0; i < mesh->mNumFaces; i++)
 	{
 		aiFace face = mesh->mFaces[i];
 		// retrieve all m_Indices of the face and store them in the m_Indices vector
-		std::array<uint32_t, 3> faceIndices;
 		for (unsigned int j = 0; j < face.mNumIndices; j++)
 		{
 			faceIndices[j] = face.mIndices[j];
 		}
+		m_IndexBuffer.AddElement< IndexAttribute>(faceIndices[0], faceIndices[1], faceIndices[2]);
 
-		m_IndexBuffer.AddElement(IndexAttribute(faceIndices[0], faceIndices[1], faceIndices[2]));
 	}
 
 

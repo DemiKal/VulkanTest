@@ -89,8 +89,8 @@ public:
 	void Update(float deltaTime);
 	void RenderTriangle(Context& context, uint32_t swapchain_index);
 
-	void Prepare();
 	void InitLogger();
+	void Prepare();
 	void InitWindow();
 	void InitInstance(Context& context, const std::vector<const char*>& required_instance_extensions, const std::vector<const char*>& required_validation_layers);
 	void SelectPhysicalDeviceAndInstance(Context& context);
@@ -116,6 +116,8 @@ public:
 	//void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void StageBuffer(Context& context, Buffer& allocBuffer, vk::BufferUsageFlagBits usageFlags, VmaMemoryUsage memoryUsage);
 	void UpdateUniformBuffer(float dt);
+	void LoadMeshes();
+
 	void SetupRenderPassBeginInfo(Context& context)
 	{
 		m_ClearValues.clear();

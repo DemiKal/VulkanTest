@@ -176,58 +176,6 @@ void VulkanHPP::Prepare()
 	float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
 	m_Camera = std::make_unique<Camera>(glm::vec3(0, 0, -2.5f), 70.0f, aspect, 0.01f, 100.0f);
 
-#pragma region
-	Buffer vb;
-	vb.AddAttribute(PositionAttribute{});
-	vb.AddAttribute(ColorAttribute{});
-	vb.Finalize();
-	PositionAttribute v0p = PositionAttribute{ 1.0f, 1.0f, 0.0f };
-	ColorAttribute v0c = ColorAttribute{ 1.0f, 0.0f, 0.0f };
-	PositionAttribute v1p = PositionAttribute{ -1.0f, 1.0f, 0.0f };
-	ColorAttribute v1c = ColorAttribute{ 0.0f, 1.0f, 0.0f };
-	PositionAttribute v2p = PositionAttribute{ 0.0f, -1.0f, 0.0f };
-	ColorAttribute v2c = ColorAttribute{ 0.0f, 0.0f, 1.0f };
-	vb.AddElement(v0p);
-	vb.AddElement(v0c);
-	vb.AddElement(v1p);
-	vb.AddElement(v1c);
-	vb.AddElement(v2p);
-	vb.AddElement(v2c);
-	vb.AddElement(BoneWeightAttribute{ 0.0f, 0.0f, 1.0f });
-	auto a1 = vb.GetAttribute<PositionAttribute>(0);
-	auto b1 = vb.GetAttribute<ColorAttribute>(0);
-	auto a2 = vb.GetAttribute<PositionAttribute>(1);
-	auto b2 = vb.GetAttribute<ColorAttribute>(1);
-	auto a3 = vb.GetAttribute<PositionAttribute>(2);
-	auto b3 = vb.GetAttribute<ColorAttribute>(2);
-	auto b4 = vb.GetAttribute<ColorAttribute>(3);
-
-	IndexBuffer ib;
-	ib.AddElement(IndexAttribute{ 0 , 1 , 2 });
-#pragma endregion
-
-	meshManager.LoadFromFile("../Assets/ColoredCastle.glb", aiPostProcessSteps::aiProcess_Triangulate);
-
-	//using T = BoneIndexAttribute;
-	//auto* ptr = vb.GetAttribute<T>(0);
-	//if (ptr)
-	//{
-	//	ptr->x = 112.0f;
-	//	ptr->y = 867.0f;
-	//	ptr->z = 991.0f;
-	//
-	//
-	//	auto* vvv = reinterpret_cast<T*>(ptr);
-	//
-	//	*vvv = T(100, 128, 256);;
-	//}
-	//auto* ptr2 = vb.GetAttribute<BoneIndexAttribute>(0);
-	////vb.emplace_back(attr1);
-	////vb.emplace_back(attr2);
-	////vb.emplace_back(attr3);
-	//auto strd = vb.TotalStride();
-	//auto& vb1 = vb.VertexAttributes[0];
-
 	InitLogger();
 	InitWindow();
 	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
@@ -235,6 +183,7 @@ void VulkanHPP::Prepare()
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
 	InitAllocator(m_Context);
+	LoadMeshes();
 	SetupDepthStencil(m_Context);
 	InitRenderPass(m_Context);
 	SetupRenderPassBeginInfo(m_Context);
@@ -246,6 +195,41 @@ void VulkanHPP::Prepare()
 	InitFrameBuffers(m_Context);
 
 	InitVertices(m_Context);
+}
+void VulkanHPP::LoadMeshes()
+{
+#pragma region
+	//Buffer vb;
+	//vb.AddAttribute(PositionAttribute{});
+	//vb.AddAttribute(ColorAttribute{});
+	//vb.Finalize();
+	//PositionAttribute v0p = PositionAttribute{ 1.0f, 1.0f, 0.0f };
+	//ColorAttribute v0c = ColorAttribute{ 1.0f, 0.0f, 0.0f };
+	//PositionAttribute v1p = PositionAttribute{ -1.0f, 1.0f, 0.0f };
+	//ColorAttribute v1c = ColorAttribute{ 0.0f, 1.0f, 0.0f };
+	//PositionAttribute v2p = PositionAttribute{ 0.0f, -1.0f, 0.0f };
+	//ColorAttribute v2c = ColorAttribute{ 0.0f, 0.0f, 1.0f };
+	//vb.AddElement< PositionAttribute>(1.0f, 1.0f, 0.0f);
+	//vb.AddElement< ColorAttribute>(1.0f, 0.0f, 0.0f);
+	//vb.AddElement< PositionAttribute>(-1.0f, 1.0f, 0.0f);
+	//vb.AddElement< ColorAttribute>(0.0f, 1.0f, 0.0f);
+	//vb.AddElement< PositionAttribute>(0.0f, -1.0f, 0.0f);
+	//vb.AddElement< ColorAttribute>(0.0f, 0.0f, 1.0f);
+	//vb.AddElement< BoneWeightAttribute>(0.0f, 0.0f, 1.0f );
+	//
+	//auto a1 = vb.GetAttribute<PositionAttribute>(0);
+	//auto b1 = vb.GetAttribute<ColorAttribute>(0);
+	//auto a2 = vb.GetAttribute<PositionAttribute>(1);
+	//auto b2 = vb.GetAttribute<ColorAttribute>(1);
+	//auto a3 = vb.GetAttribute<PositionAttribute>(2);
+	//auto b3 = vb.GetAttribute<ColorAttribute>(2);
+	//auto b4 = vb.GetAttribute<ColorAttribute>(3);
+	//
+	//IndexBuffer ib;
+	//ib.AddElement< IndexAttribute>( 0 , 1 , 2 );
+#pragma endregion
+
+	meshManager.LoadFromFile("../Assets/Spyro.glb", aiPostProcessSteps::aiProcess_Triangulate);
 }
 
 void VulkanHPP::SetupDescriptorSet(Context& context)

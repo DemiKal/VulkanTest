@@ -246,23 +246,28 @@ struct Buffer //: private std::vector<std::byte>
 	//template<typename T, typename ...Args>
 	//Check
 
-	template<typename T>
-	void AddElement(const  T& elem)
+	template <typename T, typename ... Args>
+	T create(Args&& ... args) {
+		return T(std::forward<Args>(args)...);
+	}
+
+
+	template<typename T, typename ... Args>
+	void AddElement(Args&& ... args)
 	{
-
 		//todo check size!
-
 		bool hasType = false;
 		for (auto& var : VertexAttributes) //todo: use bitset?
 			hasType |= static_cast<bool>(std::get_if<T>(&var));
 
 		if (!hasType)
 		{
-			fmt::print("ey get outta here man, declare an attribute type first");
+			LOGE("This vertex does not have this attribute declared!");
 			return;
 		}
+
 		size_t bufferSize = buffer.size();
-		size_t index = bufferSize;
+		size_t byteIndex = bufferSize;
 		size_t byteSize = sizeof(T);
 
 		//if (buffer.size() + byteSize > buffer.capacity())
@@ -273,8 +278,9 @@ struct Buffer //: private std::vector<std::byte>
 
 		//buffer.reserve(byteSize);
 		//std::array < std::byte, T::Stride()> arr;
-		T* ptr = reinterpret_cast<T*>(buffer.data() + index);
-		*ptr = std::move(elem);
+		T* ptr = reinterpret_cast<T*>(buffer.data() + byteIndex);
+		//*ptr = static_cast<T>(std::forward<T>(args)...);
+		*ptr = T{ std::forward<Args>(args)... };
 
 		//buffer.insert(buffer.end(), std::begin(arr), std::end(arr));
 
