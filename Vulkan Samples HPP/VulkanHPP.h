@@ -122,7 +122,9 @@ public:
 		vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 		vk::ImageCreateInfo depthStencilCreateInfo;
 		depthStencilCreateInfo.imageType = vk::ImageType::e2D;
-		depthStencilCreateInfo.extent = vk::Extent3D{ (uint32_t)m_Width, (uint32_t)m_Height, 1u };
+		
+		vk::Extent3D ext={(uint32_t)context.swapchain_dimensions.width, context.swapchain_dimensions.height, 1u };
+		depthStencilCreateInfo.extent = ext;
 		depthStencilCreateInfo.format = depthFormat;
 		depthStencilCreateInfo.mipLevels = 1;
 		depthStencilCreateInfo.arrayLayers = 1;

@@ -173,49 +173,27 @@ std::string LoadFile(const std::string& path)
 
 void VulkanHPP::Prepare()
 {
-	//camera.model = glm::mat4(1.0f);
-	//camera.view = glm::mat4(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)));
-	//auto aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
-	//camera.projection = glm::perspective(glm::radians(60.0f), aspect, 1.f, 256.f);
 	float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
 	m_Camera = std::make_unique<Camera>(glm::vec3(0, 0, -2.5f), 70.0f, aspect, 0.01f, 100.0f);
 
+#pragma region
 	Buffer vb;
-
 	vb.AddAttribute(PositionAttribute{});
 	vb.AddAttribute(ColorAttribute{});
 	vb.Finalize();
-	//	{ { 1.0f, 1.0f, 0.0f },  { 1.0f, 0.0f, 0.0f } },
-	//	{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-	//	{ { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
-	//PositionAttribute vv =		PositionAttribute{ -1,  1, 0 } *0.5f;
-
-
 	PositionAttribute v0p = PositionAttribute{ 1.0f, 1.0f, 0.0f };
 	ColorAttribute v0c = ColorAttribute{ 1.0f, 0.0f, 0.0f };
 	PositionAttribute v1p = PositionAttribute{ -1.0f, 1.0f, 0.0f };
 	ColorAttribute v1c = ColorAttribute{ 0.0f, 1.0f, 0.0f };
 	PositionAttribute v2p = PositionAttribute{ 0.0f, -1.0f, 0.0f };
 	ColorAttribute v2c = ColorAttribute{ 0.0f, 0.0f, 1.0f };
-	//PositionAttribute v3p = PositionAttribute{ -1, -1, 0 };
-	//ColorAttribute v3c = ColorAttribute{ 1, 1, 0 };
-
 	vb.AddElement(v0p);
 	vb.AddElement(v0c);
 	vb.AddElement(v1p);
 	vb.AddElement(v1c);
 	vb.AddElement(v2p);
 	vb.AddElement(v2c);
-	//vb.AddElement(v3p);
-	//vb.AddElement(v3c);
-
-
 	vb.AddElement(BoneWeightAttribute{ 0.0f, 0.0f, 1.0f });
-	//vb.AddElement(BoneIndex(1, 2, 3));
-	//vb.AddElement(BoneIndex(4, 5, 6));
-	//interleave!
-
-
 	auto a1 = vb.GetAttribute<PositionAttribute>(0);
 	auto b1 = vb.GetAttribute<ColorAttribute>(0);
 	auto a2 = vb.GetAttribute<PositionAttribute>(1);
@@ -226,35 +204,29 @@ void VulkanHPP::Prepare()
 
 	IndexBuffer ib;
 	ib.AddElement(IndexAttribute{ 0 , 1 , 2 });
-	//ib.AddElement(Indices{2 , 3 , 0});
-
-	//meshManager.AddMesh(ib, vb);
-
-
+#pragma endregion
 
 	meshManager.LoadFromFile("../Assets/ColoredCastle.glb", aiPostProcessSteps::aiProcess_Triangulate);
 
-	using T = BoneIndexAttribute;
-	auto* ptr = vb.GetAttribute<T>(0);
-	if (ptr)
-	{
-		ptr->x = 112.0f;
-		ptr->y = 867.0f;
-		ptr->z = 991.0f;
-
-
-		auto* vvv = reinterpret_cast<T*>(ptr);
-
-		*vvv = T(100, 128, 256);;
-	}
-	auto* ptr2 = vb.GetAttribute<BoneIndexAttribute>(0);
-
-
-	//vb.emplace_back(attr1);
-	//vb.emplace_back(attr2);
-	//vb.emplace_back(attr3);
-	auto strd = vb.TotalStride();
-	auto& vb1 = vb.VertexAttributes[0];
+	//using T = BoneIndexAttribute;
+	//auto* ptr = vb.GetAttribute<T>(0);
+	//if (ptr)
+	//{
+	//	ptr->x = 112.0f;
+	//	ptr->y = 867.0f;
+	//	ptr->z = 991.0f;
+	//
+	//
+	//	auto* vvv = reinterpret_cast<T*>(ptr);
+	//
+	//	*vvv = T(100, 128, 256);;
+	//}
+	//auto* ptr2 = vb.GetAttribute<BoneIndexAttribute>(0);
+	////vb.emplace_back(attr1);
+	////vb.emplace_back(attr2);
+	////vb.emplace_back(attr3);
+	//auto strd = vb.TotalStride();
+	//auto& vb1 = vb.VertexAttributes[0];
 
 	InitLogger();
 	InitWindow();
@@ -1225,6 +1197,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	//rp_begin.framebuffer = framebuffer; 
 	// We will add draw commands in the same command buffer.
 	m_RenderPassBeginInfo.framebuffer = framebuffer;
+	m_RenderPassBeginInfo.renderArea = vk::Rect2D{ {0u,0u},{(uint32_t)context.swapchain_dimensions.width, (uint32_t)context.swapchain_dimensions.height} };
 	cmd.beginRenderPass(m_RenderPassBeginInfo, vk::SubpassContents::eInline);
 
 	cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, context.pipelineLayout, 0, context.descriptorSet, nullptr);
@@ -1233,7 +1206,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	auto& triMesh = meshManager.GetMesh(0);
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
 	vk::Buffer buffer{ triMesh.m_VertexBuffer.vkBuffer };
-	cmd.bindVertexBuffers(0, buffer, { 0 });
+	cmd.bindVertexBuffers(0, buffer, { 0 }); 
 
 	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
 
@@ -1527,6 +1500,7 @@ void VulkanHPP::Resize(const uint32_t, const uint32_t)
 
 	InitSwapchain(m_Context);
 	InitFrameBuffers(m_Context);
+	SetupDepthStencil(m_Context);
 }
 
 void VulkanHPP::TearDownFramebuffers(Context& context)
