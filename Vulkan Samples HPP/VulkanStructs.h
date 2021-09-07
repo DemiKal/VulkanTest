@@ -5,6 +5,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
+#include "vk_mem_alloc.h"
 
 
 struct SwapchainDimensions
@@ -44,6 +45,7 @@ struct Allocation {
 	void* mapped{ nullptr };
 	/** @brief Memory propertys flags to be filled by external source at buffer creation (to query at some later point) */
 	vk::MemoryPropertyFlags memoryPropertyFlags;
+	
 };
 
 struct Image : Allocation
@@ -53,6 +55,7 @@ struct Image : Allocation
 	vk::ImageView view;
 	vk::Sampler sampler;
 	vk::Format format{ vk::Format::eUndefined };
+	VmaAllocation allocation;
 };
 struct Context
 {

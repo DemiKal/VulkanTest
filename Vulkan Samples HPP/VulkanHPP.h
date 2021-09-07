@@ -1,7 +1,21 @@
 #pragma once
 #include "vulkanStructs.h"
 #include "VertexBuffer.h"
+#include <iostream>
 
+#pragma region VK check
+#define VK_CHECK(x)                                                 \
+	do                                                              \
+	{                                                               \
+		VkResult err = x;                                           \
+		if (err)                                                    \
+		{                                                           \
+			std::cout << "Detected Vulkan error: " << err << std::endl; \
+			 											\
+			abort();                                                \
+		}                                                           \
+	} while (0)
+#pragma endregion
 
 struct Camera
 {
@@ -115,6 +129,7 @@ public:
 		m_RenderPassBeginInfo.pClearValues = m_ClearValues.data();
 	}
 
+	//TODO: delete image buffer
 	void SetupDepthStencil(Context& context)
 	{
 		auto depthFormat = vk::Format::eD32SfloatS8Uint; //TODO: QUERY AND CHOOSE ONE
@@ -200,25 +215,37 @@ public:
 		m_Context.device.waitIdle();
 	}
 
-	Image CreateImage(const vk::ImageCreateInfo& imageCreateInfo, //todo: add context?
+	Image CreateImage(  vk::ImageCreateInfo& imageCreateInfo, //todo: add context?
 		const vk::MemoryPropertyFlags& memoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal)   
 	{
 		auto& device = m_Context.device;
+		VmaAllocationCreateInfo dimg_allocinfo = {};
+		dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		
 		Image result;
-		result.device = device;
-		result.image =   device.createImage(imageCreateInfo);
-		result.format = imageCreateInfo.format;
-		result.extent = imageCreateInfo.extent;
-		m_DeviceMemoryProperties = m_Context.gpu.getMemoryProperties();
 
-		vk::MemoryRequirements memReqs = device.getImageMemoryRequirements(result.image);
-		vk::MemoryAllocateInfo memAllocInfo;
+
+		VK_CHECK(vmaCreateImage(m_Allocator, 
+			reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), 
+			&dimg_allocinfo, reinterpret_cast<VkImage*>(&result.image),
+			&m_DepthStencil.allocation, nullptr));
+
+
+		// Image result;
+		// result.device = device;
+		// result.image = device.createImage(imageCreateInfo);
+		// result.format = imageCreateInfo.format;
+		// result.extent = imageCreateInfo.extent;
+		// m_DeviceMemoryProperties = m_Context.gpu.getMemoryProperties();
+
+		//vk::MemoryRequirements memReqs = device.getImageMemoryRequirements(result.image);
+		//vk::MemoryAllocateInfo memAllocInfo;
 		
-		memAllocInfo.allocationSize = result.allocSize = memReqs.size;
-		memAllocInfo.memoryTypeIndex = GetMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
-		result.memory = device.allocateMemory(memAllocInfo);
-		device.bindImageMemory(result.image, result.memory, 0);
+		//memAllocInfo.allocationSize = result.allocSize = memReqs.size;
+		//memAllocInfo.memoryTypeIndex = GetMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
+		//result.memory = device.allocateMemory(memAllocInfo);
+		//device.bindImageMemory(result.image, result.memory, 0);
 		return result;
 	}
 
@@ -361,15 +388,3 @@ public:
 };
 
 bool ValidateLayers(const std::vector<const char*>& required, const std::vector<vk::LayerProperties>& available);
-
-#define VK_CHECK(x)                                                 \
-	do                                                              \
-	{                                                               \
-		VkResult err = x;                                           \
-		if (err)                                                    \
-		{                                                           \
-			std::cout << "Detected Vulkan error: " << err << std::endl; \
-			 											\
-			abort();                                                \
-		}                                                           \
-	} while (0)

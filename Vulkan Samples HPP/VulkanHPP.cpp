@@ -234,10 +234,10 @@ void VulkanHPP::Prepare()
 	SelectPhysicalDeviceAndInstance(m_Context);
 	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
+	InitAllocator(m_Context);
 	SetupDepthStencil(m_Context);
 	InitRenderPass(m_Context);
 	SetupRenderPassBeginInfo(m_Context);
-	InitAllocator(m_Context);
 	InitUniformBuffer(m_Context);
 	InitDescriptorPool(m_Context);
 	InitDescriptorSetLayout(m_Context);
