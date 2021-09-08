@@ -171,8 +171,15 @@ struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR 
 struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct BoneWeightAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
-struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, int>> { INHERIT_CONSTRUCTOR };
+struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, uint32_t>> { INHERIT_CONSTRUCTOR };
 
+ template< template <class...> typename T, int N  >
+ struct Boneseee : VertexAttributeNew<glm::vec<N, T>> 
+ { 
+	 using VertexAttributeNew<glm::vec<N, T>>::VertexAttributeNew;
+ };
+ 
+//Boneseee<glm::vec<3, uint32_t>> fasdas;
 //template <typename N, template<class...> class V>
 //template <int N>
 struct IndexAttribute : VertexAttributeNew <glm::uvec3>

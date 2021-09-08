@@ -13,9 +13,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "VulkanHPP.h"
-#include "vk_mem_alloc.h"
-#include "Mesh.h"
-#include <typeinfo>
 #include <variant>
 #include <tuple>
 #include <fstream>
@@ -24,6 +21,7 @@ __pragma(warning(push, 0))
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <shaderc/shaderc.hpp>
+#include "vk_mem_alloc.h"
 __pragma(warning(pop))
 
 #include "Logger.hpp"
@@ -41,6 +39,7 @@ std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::Lay
 
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data);
 void WindowSizeCallback(GLFWwindow* window, int width, int height);
 void MouseMoveHandler(GLFWwindow* window, double posx, double posy);
@@ -78,43 +77,43 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 
 
 #pragma region templatememes
-template<auto N>
-struct TestExtraction {
-
-};
-template<auto arg_N>
-struct val {
-	static constexpr auto N = arg_N;
-};
-
-template<template <auto> typename T, auto N>
-constexpr auto extract(const T<N>&)->val<N>;
-
-template<typename T>
-constexpr auto extract_N = decltype(extract(std::declval<T>()))::N;
-
-constexpr auto ffsd = extract_N<TestExtraction<5>>;
-
-template<typename...Ts>
-using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
-
-template<typename...Ts>
-using remove_t = tuple_cat_t<
-	typename std::conditional<
-	//IsValidAttrib<Ts>(),
-	//!Ts::enabled(),
-	!extract_N<Ts>,
-	std::tuple<>,   //<-- if true
-	std::tuple<Ts>  //<-- if not
-	>::type...
->;
-
-
-template <class T, template <class> class OtherType>
-class Nest
-{
-	OtherType<T> f;
-};
+//template<auto N>
+//struct TestExtraction {
+//
+//};
+//template<auto arg_N>
+//struct val {
+//	static constexpr auto N = arg_N;
+//};
+//
+//template<template <auto> typename T, auto N>
+//constexpr auto extract(const T<N>&)->val<N>;
+//
+//template<typename T>
+//constexpr auto extract_N = decltype(extract(std::declval<T>()))::N;
+//
+//constexpr auto ffsd = extract_N<TestExtraction<5>>;
+//
+//template<typename...Ts>
+//using tuple_cat_t = decltype(std::tuple_cat(std::declval<Ts>()...));
+//
+//template<typename...Ts>
+//using remove_t = tuple_cat_t<
+//	typename std::conditional<
+//	//IsValidAttrib<Ts>(),
+//	//!Ts::enabled(),
+//	!extract_N<Ts>,
+//	std::tuple<>,   //<-- if true
+//	std::tuple<Ts>  //<-- if not
+//	>::type...
+//>;
+//
+//
+//template <class T, template <class> class OtherType>
+//class Nest
+//{
+//	OtherType<T> f;
+//};
 
 
 //template <typename... Types>
@@ -164,6 +163,7 @@ class Nest
 //	operator std::string() const { return std::to_string(stride); }
 //};
 #pragma endregion
+
 MeshManager  meshManager;
 std::string LoadFile(const std::string& path)
 {
@@ -178,9 +178,9 @@ void VulkanHPP::Prepare()
 
 	InitLogger();
 	InitWindow();
-	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
+	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME   }, {});
 	SelectPhysicalDeviceAndInstance(m_Context);
-	InitDevice(m_Context, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
+	InitDevice(m_Context, { VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_KHR_SWAPCHAIN_EXTENSION_NAME  });
 	InitSwapchain(m_Context);
 	InitAllocator(m_Context);
 	LoadMeshes();
@@ -229,7 +229,7 @@ void VulkanHPP::LoadMeshes()
 	//ib.AddElement< IndexAttribute>( 0 , 1 , 2 );
 #pragma endregion
 
-	meshManager.LoadFromFile("../Assets/Spyro.glb", aiPostProcessSteps::aiProcess_Triangulate);
+	meshManager.LoadFromFile("../Assets/monke.glb", aiPostProcessSteps::aiProcess_Triangulate);
 }
 
 void VulkanHPP::SetupDescriptorSet(Context& context)
@@ -435,8 +435,11 @@ void VulkanHPP::InitVertices(Context& context)
 
 void VulkanHPP::InitWindow()
 {
-	vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
-		VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_2);
+	vk::ApplicationInfo appInfo("Hello Triangle", 
+		VK_MAKE_VERSION(1, 0, 0),
+		"No Engine",
+		VK_MAKE_API_VERSION(0, 1, 0, 0), 
+		VK_API_VERSION_1_2);
 
 
 	glfwInit();
@@ -1194,7 +1197,11 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
 
-	vk::Viewport vp(0.0f, 0.0f, static_cast<float>(context.swapchain_dimensions.width), static_cast<float>(context.swapchain_dimensions.height), 0.0f, 1.0f);
+	auto width = static_cast<float>(context.swapchain_dimensions.width);
+	auto height = static_cast<float>(context.swapchain_dimensions.height);
+	vk::Viewport vp(0, height, width,  -height , 0.0f, 1.0f);
+	
+	
 	cmd.setViewport(0, vp);
 
 	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
