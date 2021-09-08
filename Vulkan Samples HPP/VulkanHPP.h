@@ -318,9 +318,9 @@ public:
 		if (glfwGetKey(m_GLFWwindow, GLFW_KEY_S) == GLFW_PRESS)
 			m_Camera->Move(-camForward);
 		if (glfwGetKey(m_GLFWwindow, GLFW_KEY_A) == GLFW_PRESS)
-			m_Camera->Move(-camLeft);
+			m_Camera->Move( camLeft);
 		if (glfwGetKey(m_GLFWwindow, GLFW_KEY_D) == GLFW_PRESS)
-			m_Camera->Move(camLeft);
+			m_Camera->Move(-camLeft);
 
 
 	}
