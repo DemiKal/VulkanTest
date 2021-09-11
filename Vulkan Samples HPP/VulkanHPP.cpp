@@ -225,9 +225,11 @@ void VulkanHPP::LoadMeshes()
 	//ib.AddElement< IndexAttribute>( 0 , 1 , 2 );
 #pragma endregion
 
-	meshManager.LoadFromFile("../Assets/ColoredTriangle.glb", aiPostProcessSteps::aiProcess_Triangulate);
+	//meshManager.LoadFromFile("../Assets/ColoredTriangle.glb", aiPostProcessSteps::aiProcess_Triangulate);
 	LoadModel lm;
-	lm.Load("../Assets/ColoredTriangle.glb");
+	Mesh tri = lm.Load("../Assets/ColoredTriangle.glb");
+	//Mesh& m = meshManager.GetMesh(0);
+	meshManager.AddMesh(tri);
 }
 
 void VulkanHPP::SetupDescriptorSet(Context& context)

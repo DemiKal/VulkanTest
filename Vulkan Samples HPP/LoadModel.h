@@ -2,8 +2,10 @@
 //#include <string>
 #include "tiny_gltf.h"
 //#include "fmt/format.h"
-#include "VertexBuffer.h"
+//#include "VertexBuffer.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "mesh.h"
+
 struct Node
 {
 	glm::mat4 matrix;
@@ -21,6 +23,9 @@ struct Node
 //		return f;
 //	}
 //}
+
+#define CONVERT_COMPONENT 
+
 
 struct LoadModel
 {
@@ -108,7 +113,8 @@ struct LoadModel
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					colorBuffer = reinterpret_cast<const std::byte*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-					vertexBuffer.AddAttribute(ColorAttribute{});
+
+					vertexBuffer.AddAttribute(VertexColor_u16vec4{});
 				}
 
 				vertexBuffer.Finalize();
@@ -121,25 +127,28 @@ struct LoadModel
 						const float* f_ptr = reinterpret_cast<const float*>(positionBuffer);
 						const glm::vec3* posConverted = reinterpret_cast<const glm::vec3*>(f_ptr) + v;
 						glm::vec3 pos = glm::make_vec3(f_ptr + v * 3); //* sizeof(float)
-						vertexBuffer.AddElement<PositionAttribute>(pos.x, pos.y, pos.z);
+						vertexBuffer.AddElement<PositionAttribute >(pos.x, pos.y, pos.z);
 
 
 					}
 					if (hasColor)
 					{
 						//vertexBuffer.AddElement<ColorAttribute>(ColorBuffer, v);
-						const uint16_t* r_ptr = reinterpret_cast<const uint16_t*>(colorBuffer) +  4 * v;
-						uint16_t ru16 = *r_ptr;
-						uint16_t gu16 = *(r_ptr + 1);
-						uint16_t bu16 = *(r_ptr + 2);
-						uint16_t au16 = *(r_ptr + 3);
-						const float r = static_cast<float>(ru16) / std::numeric_limits<uint16_t>::max();
-						const float g = static_cast<float>(gu16) / std::numeric_limits<uint16_t>::max();
-						const float b = static_cast<float>(bu16) / std::numeric_limits<uint16_t>::max();
-						const float a = static_cast<float>(au16) / std::numeric_limits<uint16_t>::max();
+						//const uint16_t* r_ptr = reinterpret_cast<const uint16_t*>(colorBuffer) +  4 * v;
+						//uint16_t r  = *r_ptr;
+						//uint16_t g  = *(r_ptr + 1);
+						//uint16_t b  = *(r_ptr + 2);
+						//uint16_t a  = *(r_ptr + 3);
+						const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
+
+						AddColors(vertexBuffer, colorBuffer, accessor.componentType, accessor.type, v);
+						//const float r = static_cast<float>(ru16) / std::numeric_limits<uint16_t>::max();
+						//const float g = static_cast<float>(gu16) / std::numeric_limits<uint16_t>::max();
+						//const float b = static_cast<float>(bu16) / std::numeric_limits<uint16_t>::max();
+						//const float a = static_cast<float>(au16) / std::numeric_limits<uint16_t>::max();
 						//const float cr = convert
-						vertexBuffer.AddElement<ColorAttribute>(r, g, b);
-						
+						//vertexBuffer.AddElement<ColorAttribute>(r, g, b, a);
+
 
 
 					}
@@ -159,6 +168,7 @@ struct LoadModel
 					const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
 
 					indexCount += static_cast<uint32_t>(accessor.count);
+					indexBuffer.AddElement<IndexAttribute>(0, 1, 2);
 
 					// glTF supports different component types of indices
 					switch (accessor.componentType) {
@@ -201,7 +211,30 @@ struct LoadModel
 
 	}
 
-	tinygltf::Model Load(const std::string& filename)
+	void AddColors(Buffer& buffer, const std::byte* srcBuffer, int componentType, int vecType, size_t index)
+	{
+		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT && vecType == TINYGLTF_TYPE_VEC4)
+			AddColors<VertexColor_u16vec4>(buffer, srcBuffer, index);
+		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT && vecType == TINYGLTF_TYPE_VEC3)
+			AddColors<VertexColor_u16vec3>(buffer, srcBuffer, index);
+	}
+
+	template<typename T>
+	void AddColors(Buffer& buffer, const std::byte* srcBuffer, size_t index)
+	{
+		const T* ptr = reinterpret_cast<const T*>(srcBuffer);
+		//vertexBuffer.AddElement<ColorAttribute>(ColorBuffer, v);
+		//const uint16_t* r_ptr = reinterpret_cast<const uint16_t*>(colorBuffer) +  4 * v;
+		//uint16_t r  = *r_ptr;
+		//uint16_t g  = *(r_ptr + 1);
+		//uint16_t b  = *(r_ptr + 2);
+		//uint16_t a  = *(r_ptr + 3);
+		buffer.AddElement<T>((const void*)srcBuffer, index);
+
+	}
+
+	//tinygltf::Model Load(const std::string& filename)
+	Mesh Load(const std::string& filename)
 	{
 		tinygltf::Model model;
 		tinygltf::TinyGLTF loader;
@@ -275,7 +308,9 @@ struct LoadModel
 			//	gBufferState[it->first] = state;
 			//}
 		}
-		return model;
+		//Mesh mesh;
+		//mesh.m_VertexBuffer = vertex
+		return Mesh(indexBuffer,vertexBuffer);
 	}
 };
 

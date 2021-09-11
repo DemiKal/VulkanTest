@@ -163,8 +163,11 @@ struct VertexAttributeNew : T  //todo: add normalization?
 		if constexpr (std::is_same_v<T, glm::uvec2>) return  vk::Format::eR32G32Uint;
 		if constexpr (std::is_same_v<T, glm::uvec3>) return  vk::Format::eR32G32B32Uint;
 		if constexpr (std::is_same_v<T, glm::uvec4>) return  vk::Format::eR32G32B32A32Uint;
-		
-		if constexpr (std::is_same_v<T, glm::u16vec4>) return  vk::Format::eR16G16B16A16Uscaled;
+
+		if constexpr (std::is_same_v<T, glm::u16vec1>) return  vk::Format::eR16Unorm;
+		if constexpr (std::is_same_v<T, glm::u16vec2>) return  vk::Format::eR16G16Unorm;
+		if constexpr (std::is_same_v<T, glm::u16vec3>) return  vk::Format::eR16G16B16Unorm;
+		if constexpr (std::is_same_v<T, glm::u16vec4>) return  vk::Format::eR16G16B16A16Unorm;
 		//VK_FORMAT_R16G16B16A16_USCALED
 
 	}
@@ -174,25 +177,41 @@ struct VertexAttributeNew : T  //todo: add normalization?
 //make bone weights static
 static constexpr int BoneIndexCount = 3;
 struct PositionAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
-struct ColorAttribute : VertexAttributeNew< glm::vec3> { INHERIT_CONSTRUCTOR };
+//struct ColorAttribute : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR };
 struct TexCoordAttribute : VertexAttributeNew<glm::vec2> { INHERIT_CONSTRUCTOR };
 struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct BoneWeightAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
 struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, uint32_t>> { INHERIT_CONSTRUCTOR };
+//struct VertexColor_u16vec4 : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u16vec4 : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u16vec3 : VertexAttributeNew< glm::u16vec3> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u16vec2 : VertexAttributeNew< glm::u16vec2> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u16vec1 : VertexAttributeNew< glm::u16vec1> { INHERIT_CONSTRUCTOR };
 
-template< template <class...> typename T, int N  >
-struct Bones : VertexAttributeNew<glm::vec<N, T>>
-{
-	using VertexAttributeNew<glm::vec<N, T>>::VertexAttributeNew;
-};
 
+//template <typename T>
+//struct ColorAttribute : VertexAttributeNew<T> { INHERIT_CONSTRUCTOR };
+
+//template< template <class...> typename T, int N  >
+//struct Bones : VertexAttributeNew<glm::vec<N, T>>
+//{
+//	using VertexAttributeNew<glm::vec<N, T>>::VertexAttributeNew;
+//};
+//template<typename T>
+//struct Bones : VertexAttributeNew<T>
+//{
+//	using VertexAttributeNew<T>::VertexAttributeNew;
+//};
+
+//Bones<glm::vec<2, int>> a ;
 
 //Bones<decltype(uint32_t), 3> avc;
 //Boneseee<glm::vec<3, uint32_t>> fasdas;
 //template <typename N, template<class...> class V>
 //template <int N>
+
 struct IndexAttribute : VertexAttributeNew <glm::uvec3>
 {
 	INHERIT_CONSTRUCTOR
@@ -220,7 +239,7 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-#define ATTRIBUTE_TYPES  PositionAttribute, ColorAttribute, TexCoordAttribute, IndexAttribute ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
+#define ATTRIBUTE_TYPES  PositionAttribute,  TexCoordAttribute, VertexColor_u16vec4, VertexColor_u16vec3,VertexColor_u16vec2,VertexColor_u16vec1, IndexAttribute ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
 
 
@@ -281,31 +300,31 @@ struct Buffer //: private std::vector<std::byte>
 	}
 
 	//directly copy from buffer
-	//template<typename T>
-	//void AddElement(const void* bufferPtr, size_t offset)
-	//{
-	//	if (!HasType<T>()) return;
-	//
-	//	size_t bufferSize = buffer.size();
-	//	size_t byteIndex = bufferSize;
-	//	size_t byteSize = sizeof(T);
-	//
-	//	//if (buffer.size() + byteSize > buffer.capacity())
-	//	{
-	//		buffer.resize(bufferSize + byteSize);
-	//		bufferSize = buffer.size();
-	//	}
-	//	auto* ptrR = reinterpret_cast<unsigned short*>(&bufferPtr + offset);
-	//	auto* ptrG = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 1;
-	//	auto* ptrB = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 2;
-	//	float colR = *ptrR / (float)std::numeric_limits<unsigned short>::max();
-	//	float colG = *ptrG / (float)std::numeric_limits<unsigned short>::max();
-	//	float colB = *ptrB / (float)std::numeric_limits<unsigned short>::max();
-	//
-	//	//void* srcStart = bufferPtr + byteSize * offset;
-	//	memcpy(buffer.data() + byteIndex, (const std::byte*)bufferPtr + byteSize * offset, byteSize);
-	//	//std::copy(srcStart, srcStart + byteSize, buffer.data() + byteIndex);
-	//}
+	template<typename T>
+	void AddElement(const void* bufferPtr, size_t offset)
+	{
+		if (!HasType<T>()) return;
+
+		size_t bufferSize = buffer.size();
+		size_t byteIndex = bufferSize;
+		size_t byteSize = sizeof(T);
+
+		//if (buffer.size() + byteSize > buffer.capacity())
+		{
+			buffer.resize(bufferSize + byteSize);
+			bufferSize = buffer.size();
+		}
+		auto* ptrR = reinterpret_cast<unsigned short*>(&bufferPtr + offset);
+		auto* ptrG = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 1;
+		auto* ptrB = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 2;
+		float colR = *ptrR / (float)std::numeric_limits<unsigned short>::max();
+		float colG = *ptrG / (float)std::numeric_limits<unsigned short>::max();
+		float colB = *ptrB / (float)std::numeric_limits<unsigned short>::max();
+
+		//void* srcStart = bufferPtr + byteSize * offset;
+		memcpy(buffer.data() + byteIndex, (const std::byte*)bufferPtr + byteSize * offset, byteSize);
+		//std::copy(srcStart, srcStart + byteSize, buffer.data() + byteIndex);
+	}
 
 
 

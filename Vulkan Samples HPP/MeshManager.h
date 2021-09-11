@@ -18,9 +18,13 @@ struct MeshManager
 	std::vector<Mesh>& GetMeshes();
 	Mesh& GetMesh(int i);
 	std::optional<uint32_t> LoadFromFile(const std::string& path, aiPostProcessSteps loadFlags);
-	void AddMesh(IndexBuffer&  indexBuffer, Buffer&  vertexBuffer)
+	void AddMesh(Mesh& mesh)
 	{
-		m_Meshes.emplace_back (indexBuffer,  vertexBuffer);
+		m_Meshes.push_back(mesh);
+	}
+	void AddMesh(IndexBuffer& indexBuffer, Buffer& vertexBuffer)
+	{
+		m_Meshes.emplace_back(indexBuffer, vertexBuffer);
 	}
 };
 
