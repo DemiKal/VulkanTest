@@ -227,7 +227,7 @@ void VulkanHPP::LoadMeshes()
 
 	//meshManager.LoadFromFile("../Assets/ColoredTriangle.glb", aiPostProcessSteps::aiProcess_Triangulate);
 	LoadModel lm;
-	Mesh tri = lm.Load("../Assets/ColoredTriangle.glb");
+	Mesh tri = lm.Load("../Assets/ColoredCastle.glb");
 	//Mesh& m = meshManager.GetMesh(0);
 	meshManager.AddMesh(tri);
 }

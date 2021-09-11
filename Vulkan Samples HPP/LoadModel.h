@@ -168,7 +168,7 @@ struct LoadModel
 					const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
 
 					indexCount += static_cast<uint32_t>(accessor.count);
-					indexBuffer.AddElement<IndexAttribute>(0, 1, 2);
+					//indexBuffer.AddElement<IndexAttribute>(0, 1, 2);
 
 					// glTF supports different component types of indices
 					switch (accessor.componentType) {
@@ -185,6 +185,16 @@ struct LoadModel
 						memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
 						for (size_t index = 0; index < accessor.count; index++) {
 							auto ind = (buf[index] + vertexStart);
+						}
+						//std::byte* ptr = reinterpret_cast<std::byte*>(buf);
+						//size_t buffAllocBytes = accessor.count * sizeof(uint16_t);
+						//for (size_t i = 0; i < buffAllocBytes; i+= 3 )
+						for (size_t i = 0; i < accessor.count; i += 3)
+						{
+							uint32_t i0 = static_cast<uint32_t>(buf[i]);
+							uint32_t i1 = static_cast<uint32_t>(buf[i + 1]);
+							uint32_t i2 = static_cast<uint32_t>(buf[i + 2]);
+							indexBuffer.AddElement<IndexAttribute>(i0, i1, i2);
 						}
 						break;
 					}
@@ -310,7 +320,7 @@ struct LoadModel
 		}
 		//Mesh mesh;
 		//mesh.m_VertexBuffer = vertex
-		return Mesh(indexBuffer,vertexBuffer);
+		return Mesh(indexBuffer, vertexBuffer);
 	}
 };
 
