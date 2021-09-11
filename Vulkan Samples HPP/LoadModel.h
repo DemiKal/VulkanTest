@@ -27,6 +27,15 @@ struct Node
 #define CONVERT_COMPONENT 
 
 
+static size_t GetTypeSize(int t)
+{
+	if (t == TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT) return sizeof(uint32_t);
+	if (t == TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT) return sizeof(uint16_t);
+	if (t == TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE) return sizeof(uint8_t);
+
+	return 0;
+}
+
 struct LoadModel
 {
 	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, Node* parent, IndexBuffer& indexBuffer, Buffer& vertexBuffer)
@@ -168,50 +177,73 @@ struct LoadModel
 					const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
 
 					indexCount += static_cast<uint32_t>(accessor.count);
-					//indexBuffer.AddElement<IndexAttribute>(0, 1, 2);
+					indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+					indexBuffer.Finalize();
+					size_t typeSize = GetTypeSize(accessor.componentType);
+					auto it = reinterpret_cast<const std::vector<std::byte>*>(&buffer.data)->begin() + accessor.byteOffset + bufferView.byteOffset;
+					auto itEnd = it + indexCount * typeSize;
+					indexBuffer.buffer = std::vector<std::byte>(it, itEnd); //TODO: check if replace is sufficient, maybe push back?
 
-					// glTF supports different component types of indices
-					switch (accessor.componentType) {
-					case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-						uint32_t* buf = new uint32_t[accessor.count];
-						memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
-						for (size_t index = 0; index < accessor.count; index++) {
-							auto ind = (buf[index] + vertexStart);
-						}
-						break;
-					}
-					case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-						uint16_t* buf = new uint16_t[accessor.count];
-						memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
-						for (size_t index = 0; index < accessor.count; index++) {
-							auto ind = (buf[index] + vertexStart);
-						}
-						//std::byte* ptr = reinterpret_cast<std::byte*>(buf);
-						//size_t buffAllocBytes = accessor.count * sizeof(uint16_t);
-						//for (size_t i = 0; i < buffAllocBytes; i+= 3 )
-						indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
-						indexBuffer.Finalize();
-						for (size_t i = 0; i < accessor.count; i += 3)
-						{
-							uint32_t i0 = static_cast<uint32_t>(buf[i]);
-							uint32_t i1 = static_cast<uint32_t>(buf[i + 1]);
-							uint32_t i2 = static_cast<uint32_t>(buf[i + 2]);
-							indexBuffer.AddElement<IndexAttribute_u16vec3>(i0, i1, i2);
-						}
-						break;
-					}
-					case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-						uint8_t* buf = new uint8_t[accessor.count];
-						memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
-						for (size_t index = 0; index < accessor.count; index++) {
-							auto ind = (buf[index] + vertexStart);
-						}
-						break;
-					}
-					default:
-						fmt::print("Index component type {} not supported!", accessor.componentType);
-						return;
-					}
+				   // glTF supports different component types of indices
+				   //switch (accessor.componentType) {
+				   //case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+				   //	uint32_t* buf = new uint32_t[accessor.count];
+				   //	memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
+				   //	for (size_t index = 0; index < accessor.count; index++) {
+				   //		auto ind = (buf[index] + vertexStart);
+				   //	}
+				   //	break;
+				   //}
+				   //case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+				   //	uint16_t* buf = new uint16_t[accessor.count];
+				   //	//memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
+				   //	//for (size_t index = 0; index < accessor.count; index++) {
+				   //	//	auto ind = (buf[index] + vertexStart);
+				   //	//}
+				   //	indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+				   //	indexBuffer.Finalize();
+				   //	//std::vector<std::byte>::iterator;
+				   //	//const std::vector<std::byte>::iterator;
+				   //	auto it = buffer.data.begin() + accessor.byteOffset + bufferView.byteOffset;
+				   //	//auto itStart = buffer.data.begin() + accessor.byteOffset + bufferView.byteOffset;
+				   //	//size_t typeSize = accessor.componentType == TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT ?
+				   //	size_t typeSize = GetTypeSize(accessor.componentType);
+				   //	auto itEnd = it + accessor.count * typeSize;
+				   //	indexBuffer.buffer = std::vector<std::byte>(it, itEnd); //TODO: check if replace is sufficient, maybe push back?
+				   //
+				   //	//std::copy(itStart, itEnd,  indexBuffer.buffer.begin() );
+				   //	 //indexBuffer.buffer.assign(itStart, itEnd);
+				   //
+				   //	//size_t byteSize = accessor.count * sizeof(uint16_t);
+				   //	//auto* ptr = &buffer.data[accessor.byteOffset + bufferView.byteOffset]
+				   //
+				   //		//std::byte* ptr = reinterpret_cast<std::byte*>(buf);
+				   //	//size_t buffAllocBytes = accessor.count * sizeof(uint16_t);
+				   //	//for (size_t i = 0; i < buffAllocBytes; i+= 3 )
+				   //	//indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+				   //	//indexBuffer.Finalize();
+				   //	//indexBuffer.CopyBuffer<IndexAttribute_u16vec3>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+				   //	//for (size_t i = 0; i < accessor.count; i += 3)
+				   //	//{
+				   //	//	uint32_t i0 = static_cast<uint32_t>(buf[i]);
+				   //	//	uint32_t i1 = static_cast<uint32_t>(buf[i + 1]);
+				   //	//	uint32_t i2 = static_cast<uint32_t>(buf[i + 2]);
+				   //	//	indexBuffer.AddElement<IndexAttribute_u16vec3>(i0, i1, i2);
+				   //	//}
+				   //	break;
+				   //}
+				   //case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+				   //	uint8_t* buf = new uint8_t[accessor.count];
+				   //	memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
+				   //	for (size_t index = 0; index < accessor.count; index++) {
+				   //		auto ind = (buf[index] + vertexStart);
+				   //	}
+				   //	break;
+				   //}
+				   //default:
+				   //	fmt::print("Index component type {} not supported!", accessor.componentType);
+				   //	return;
+				   //}
 				}
 				//Primitive primitive{};
 				//primitive.firstIndex = firstIndex;
