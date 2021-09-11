@@ -189,12 +189,14 @@ struct LoadModel
 						//std::byte* ptr = reinterpret_cast<std::byte*>(buf);
 						//size_t buffAllocBytes = accessor.count * sizeof(uint16_t);
 						//for (size_t i = 0; i < buffAllocBytes; i+= 3 )
+						indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+						indexBuffer.Finalize();
 						for (size_t i = 0; i < accessor.count; i += 3)
 						{
 							uint32_t i0 = static_cast<uint32_t>(buf[i]);
 							uint32_t i1 = static_cast<uint32_t>(buf[i + 1]);
 							uint32_t i2 = static_cast<uint32_t>(buf[i + 2]);
-							indexBuffer.AddElement<IndexAttribute>(i0, i1, i2);
+							indexBuffer.AddElement<IndexAttribute_u16vec3>(i0, i1, i2);
 						}
 						break;
 					}

@@ -212,10 +212,9 @@ struct VertexColor_u16vec1 : VertexAttributeNew< glm::u16vec1> { INHERIT_CONSTRU
 //template <typename N, template<class...> class V>
 //template <int N>
 
-struct IndexAttribute : VertexAttributeNew <glm::uvec3>
-{
-	INHERIT_CONSTRUCTOR
-};
+struct IndexAttribute_u32vec3 : VertexAttributeNew <glm::uvec3> { INHERIT_CONSTRUCTOR };
+struct IndexAttribute_u16vec3 : VertexAttributeNew <glm::u16vec3> { INHERIT_CONSTRUCTOR };
+
 
 
 //struct Indices4 : VertexAttributeNew<glm::uvec2> { INHERIT_CONSTRUCTOR };
@@ -239,7 +238,7 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-#define ATTRIBUTE_TYPES  PositionAttribute,  TexCoordAttribute, VertexColor_u16vec4, VertexColor_u16vec3,VertexColor_u16vec2,VertexColor_u16vec1, IndexAttribute ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
+#define ATTRIBUTE_TYPES  PositionAttribute,  TexCoordAttribute, VertexColor_u16vec4, VertexColor_u16vec3,VertexColor_u16vec2,VertexColor_u16vec1, IndexAttribute_u16vec3, IndexAttribute_u32vec3 ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
 
 
@@ -457,11 +456,22 @@ public:
 	IndexBuffer()
 	{
 		//Buffer(Indices)
-		AddAttribute(IndexAttribute{});
-		Finalize();
+		//AddAttribute(IndexAttribute_u32vec3{});
+		//Finalize();
 	}
 
 public:
+	vk::IndexType GetIndexType()
+	{
+		if (VertexAttributes.empty()) throw std::exception("can't be null!");
+
+		AttributeVariant  t = VertexAttributes.front();
+		auto strideLambda = [](auto& p) { return p.Stride(); };
+		auto stride = std::visit(strideLambda, t);
+		if (stride == sizeof(glm::uvec3)) return vk::IndexType::eUint32;
+		else if (stride == sizeof(glm::u16vec3)) return vk::IndexType::eUint16;
+	}
+
 	size_t GetVertexCount()
 	{
 		return  buffer.size() / TotalStride() * glm::uvec3::length();

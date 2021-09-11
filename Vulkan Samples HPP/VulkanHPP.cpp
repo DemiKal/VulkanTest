@@ -1173,8 +1173,9 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
 	vk::Buffer buffer{ triMesh.m_VertexBuffer.vkBuffer };
 	cmd.bindVertexBuffers(0, buffer, { 0 }); 
+	auto indexType = triMesh.m_IndexBuffer.GetIndexType();
 
-	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, vk::IndexType::eUint32);
+	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, indexType);
 
 	auto width = static_cast<float>(context.swapchain_dimensions.width);
 	auto height = static_cast<float>(context.swapchain_dimensions.height);

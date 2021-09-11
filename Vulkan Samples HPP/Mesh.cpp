@@ -395,7 +395,7 @@ Mesh::Mesh(
 		{
 			faceIndices[j] = face.mIndices[j];
 		}
-		m_IndexBuffer.AddElement< IndexAttribute>(faceIndices[0], faceIndices[1], faceIndices[2]);
+		m_IndexBuffer.AddElement< IndexAttribute_u32vec3>(faceIndices[0], faceIndices[1], faceIndices[2]);
 
 	}
 
