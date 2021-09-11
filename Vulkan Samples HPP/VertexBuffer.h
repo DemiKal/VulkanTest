@@ -67,7 +67,7 @@ struct UniformBuffer
 		//auto res = vmaMapMemory(vmaAllocator, allocation, (void**)&mapped_data);
 		//device.bindBufferMemory(handle, memory, 0);
 		m_DescrBufferInfo = vk::DescriptorBufferInfo(handle, 0, VK_WHOLE_SIZE);
-		
+
 		//glm::mat4x4 model = glm::mat4x4(1.0f);
 		//ubo.view =
 		//	glm::lookAt(glm::vec3(-5.0f, 3.0f, -10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
@@ -129,6 +129,11 @@ struct UniformBuffer
 	}
 
 };
+//template<typename T, int N>
+//struct VertexAttributeNew<glm::vec<N, T>>
+//{
+//	//INHERIT_CONSTRUCTOR
+//};
 
 template<typename T  >
 struct VertexAttributeNew : T  //todo: add normalization?
@@ -158,6 +163,10 @@ struct VertexAttributeNew : T  //todo: add normalization?
 		if constexpr (std::is_same_v<T, glm::uvec2>) return  vk::Format::eR32G32Uint;
 		if constexpr (std::is_same_v<T, glm::uvec3>) return  vk::Format::eR32G32B32Uint;
 		if constexpr (std::is_same_v<T, glm::uvec4>) return  vk::Format::eR32G32B32A32Uint;
+		
+		if constexpr (std::is_same_v<T, glm::u16vec4>) return  vk::Format::eR16G16B16A16Uscaled;
+		//VK_FORMAT_R16G16B16A16_USCALED
+
 	}
 };
 
@@ -165,7 +174,7 @@ struct VertexAttributeNew : T  //todo: add normalization?
 //make bone weights static
 static constexpr int BoneIndexCount = 3;
 struct PositionAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
-struct ColorAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
+struct ColorAttribute : VertexAttributeNew< glm::vec3> { INHERIT_CONSTRUCTOR };
 struct TexCoordAttribute : VertexAttributeNew<glm::vec2> { INHERIT_CONSTRUCTOR };
 struct BitangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
@@ -173,12 +182,14 @@ struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct BoneWeightAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
 struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, uint32_t>> { INHERIT_CONSTRUCTOR };
 
- template< template <class...> typename T, int N  >
- struct Boneseee : VertexAttributeNew<glm::vec<N, T>> 
- { 
-	 using VertexAttributeNew<glm::vec<N, T>>::VertexAttributeNew;
- };
- 
+template< template <class...> typename T, int N  >
+struct Bones : VertexAttributeNew<glm::vec<N, T>>
+{
+	using VertexAttributeNew<glm::vec<N, T>>::VertexAttributeNew;
+};
+
+
+//Bones<decltype(uint32_t), 3> avc;
 //Boneseee<glm::vec<3, uint32_t>> fasdas;
 //template <typename N, template<class...> class V>
 //template <int N>
@@ -257,21 +268,52 @@ struct Buffer //: private std::vector<std::byte>
 	T create(Args&& ... args) {
 		return T(std::forward<Args>(args)...);
 	}
+	template<typename T>
+	bool HasType()
+	{
+		for (auto& var : VertexAttributes) //todo: use bitset?
+			if (static_cast<bool>(std::get_if<T>(&var))) return true;
+
+		{
+			LOGE("This vertex does not have this attribute declared!");
+			return false;
+		}
+	}
+
+	//directly copy from buffer
+	//template<typename T>
+	//void AddElement(const void* bufferPtr, size_t offset)
+	//{
+	//	if (!HasType<T>()) return;
+	//
+	//	size_t bufferSize = buffer.size();
+	//	size_t byteIndex = bufferSize;
+	//	size_t byteSize = sizeof(T);
+	//
+	//	//if (buffer.size() + byteSize > buffer.capacity())
+	//	{
+	//		buffer.resize(bufferSize + byteSize);
+	//		bufferSize = buffer.size();
+	//	}
+	//	auto* ptrR = reinterpret_cast<unsigned short*>(&bufferPtr + offset);
+	//	auto* ptrG = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 1;
+	//	auto* ptrB = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 2;
+	//	float colR = *ptrR / (float)std::numeric_limits<unsigned short>::max();
+	//	float colG = *ptrG / (float)std::numeric_limits<unsigned short>::max();
+	//	float colB = *ptrB / (float)std::numeric_limits<unsigned short>::max();
+	//
+	//	//void* srcStart = bufferPtr + byteSize * offset;
+	//	memcpy(buffer.data() + byteIndex, (const std::byte*)bufferPtr + byteSize * offset, byteSize);
+	//	//std::copy(srcStart, srcStart + byteSize, buffer.data() + byteIndex);
+	//}
+
 
 
 	template<typename T, typename ... Args>
 	void AddElement(Args&& ... args)
 	{
 		//todo check size!
-		bool hasType = false;
-		for (auto& var : VertexAttributes) //todo: use bitset?
-			hasType |= static_cast<bool>(std::get_if<T>(&var));
-
-		if (!hasType)
-		{
-			LOGE("This vertex does not have this attribute declared!");
-			return;
-		}
+		if (!HasType<T>()) return;
 
 		size_t bufferSize = buffer.size();
 		size_t byteIndex = bufferSize;

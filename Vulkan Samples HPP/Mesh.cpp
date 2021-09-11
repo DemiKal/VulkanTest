@@ -322,10 +322,10 @@ Mesh::Mesh(
 		if (colors)
 		{
 			auto color = mesh->mColors[0][i];
-			float r = color.r;
-			float g = color.g;
-			float b = color.b;
-			float a = color.a;
+			auto r = color.r;
+			auto g = color.g;
+			auto b = color.b;
+			auto a = color.a;
 			if (std::isnan(r) || std::isnan(g) || std::isnan(b) || std::isnan(a))
 			{
 				using T = unsigned short;
@@ -333,13 +333,14 @@ Mesh::Mesh(
 				T* ptrR = reinterpret_cast<T*>(&color.r);
 				T* ptrG = reinterpret_cast<T*>(&color.r) + 1;
 				T* ptrB = reinterpret_cast<T*>(&color.r) + 2;
+				T* ptrA = reinterpret_cast<T*>(&color.r) + 3;
 
-				r = static_cast<float>(*ptrR) / std::numeric_limits<T>::max();
-				g = static_cast<float>(*ptrG) / std::numeric_limits<T>::max();
-				b = static_cast<float>(*ptrB) / std::numeric_limits<T>::max();
+				 r = static_cast<float>(*ptrR) / std::numeric_limits<unsigned short>::max();
+				 g = static_cast<float>(*ptrG) / std::numeric_limits<unsigned short>::max();
+				 b = static_cast<float>(*ptrB) / std::numeric_limits<unsigned short>::max();
 			}
-
-			m_VertexBuffer.AddElement<ColorAttribute>(r, g, b);
+			m_VertexBuffer.AddElement<ColorAttribute>(r , g  , b );
+			
 		}
 
 		//if (norm)

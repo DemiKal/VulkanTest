@@ -26,11 +26,7 @@ __pragma(warning(pop))
 
 #include "Logger.hpp"
 #include "MeshManager.h"
-
-
-
-
-
+#include "LoadModel.h"
 
 
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
@@ -229,7 +225,9 @@ void VulkanHPP::LoadMeshes()
 	//ib.AddElement< IndexAttribute>( 0 , 1 , 2 );
 #pragma endregion
 
-	meshManager.LoadFromFile("../Assets/monke.glb", aiPostProcessSteps::aiProcess_Triangulate);
+	meshManager.LoadFromFile("../Assets/ColoredTriangle.glb", aiPostProcessSteps::aiProcess_Triangulate);
+	LoadModel lm;
+	lm.Load("../Assets/ColoredTriangle.glb");
 }
 
 void VulkanHPP::SetupDescriptorSet(Context& context)
@@ -458,28 +456,7 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 {
 	LOGI("Initializing Vulkan");
 
-	//alternative
-	// vk::ApplicationInfo appInfo("Hello Triangle", VK_MAKE_VERSION(1, 0, 0), "No Engine",
-	// 	VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
-	// auto width = 1024;
-	// auto height = 768;
-	//
-	// glfwInit();
-	// glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	// auto window = glfwCreateWindow(width, height, "Vulkan 101", nullptr, nullptr);
-	//
-	// auto glfwExtensionCount = 0u;
-	// auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-	// std::vector<const char*> glfwExtensionsVector(glfwExtensions, glfwExtensions + glfwExtensionCount);
-	// glfwExtensionsVector.push_back("VK_EXT_debug_utils");
-	// auto layers = std::vector<const char*>{ "VK_LAYER_KHRONOS_validation" };
-	//
-	//
-	// auto instance = vk::createInstanceUnique(
-	// 	vk::InstanceCreateInfo{ {}, &appInfo, static_cast<uint32_t>(layers.size()), layers.data(),
-	// 		static_cast<uint32_t>(glfwExtensionsVector.size()), glfwExtensionsVector.data() });
-	// auto dldi = vk::DispatchLoaderDynamic(*instance, vkGetInstanceProcAddr);
-
+	 
 	static vk::DynamicLoader  dl;
 	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -1199,7 +1176,7 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 
 	auto width = static_cast<float>(context.swapchain_dimensions.width);
 	auto height = static_cast<float>(context.swapchain_dimensions.height);
-	vk::Viewport vp(0, height, width,  -height , 0.0f, 1.0f);
+	vk::Viewport vp(0, height, width  ,  -height , 0.0f, 1.0f);
 	
 	
 	cmd.setViewport(0, vp);
