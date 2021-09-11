@@ -177,9 +177,12 @@ struct LoadModel
 					const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
 
 					indexCount += static_cast<uint32_t>(accessor.count);
-					indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+					const size_t typeSize = GetTypeSize(accessor.componentType);
+					//auto tt = typeSize == 2 ? IndexAttribute_u16vec3{} : IndexAttribute_u32vec3{};
+					if (typeSize == sizeof(uint32_t)) indexBuffer.AddAttribute(IndexAttribute_u32vec3{});
+					else if (typeSize == sizeof(uint16_t)) indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
+					//if(typeSize == sizeof(uint32_t)) indexBuffer.AddAttribute(IndexAttribute_u16vec3{});
 					indexBuffer.Finalize();
-					size_t typeSize = GetTypeSize(accessor.componentType);
 					auto it = reinterpret_cast<const std::vector<std::byte>*>(&buffer.data)->begin() + accessor.byteOffset + bufferView.byteOffset;
 					auto itEnd = it + indexCount * typeSize;
 					indexBuffer.buffer = std::vector<std::byte>(it, itEnd); //TODO: check if replace is sufficient, maybe push back?

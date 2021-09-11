@@ -313,12 +313,12 @@ struct Buffer //: private std::vector<std::byte>
 			buffer.resize(bufferSize + byteSize);
 			bufferSize = buffer.size();
 		}
-		auto* ptrR = reinterpret_cast<unsigned short*>(&bufferPtr + offset);
-		auto* ptrG = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 1;
-		auto* ptrB = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 2;
-		float colR = *ptrR / (float)std::numeric_limits<unsigned short>::max();
-		float colG = *ptrG / (float)std::numeric_limits<unsigned short>::max();
-		float colB = *ptrB / (float)std::numeric_limits<unsigned short>::max();
+		//auto* ptrR = reinterpret_cast<unsigned short*>(&bufferPtr + offset);
+		//auto* ptrG = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 1;
+		//auto* ptrB = reinterpret_cast<unsigned short*>(&bufferPtr + offset) + 2;
+		//float colR = *ptrR / (float)std::numeric_limits<unsigned short>::max();
+		//float colG = *ptrG / (float)std::numeric_limits<unsigned short>::max();
+		//float colB = *ptrB / (float)std::numeric_limits<unsigned short>::max();
 
 		//void* srcStart = bufferPtr + byteSize * offset;
 		memcpy(buffer.data() + byteIndex, (const std::byte*)bufferPtr + byteSize * offset, byteSize);
