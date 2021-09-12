@@ -42,11 +42,6 @@ void WindowSizeCallback(GLFWwindow* window, int width, int height);
 void MouseMoveHandler(GLFWwindow* window, double posx, double posy);
 void MouseHandler(GLFWwindow* window, int button, int action, int mods);
 
-struct AllocatedBuffer {
-	VkBuffer _buffer;
-	VmaAllocation _allocation;
-};
-
 struct UBO
 {
 	glm::mat4 proj;
@@ -231,8 +226,8 @@ void VulkanHPP::LoadMeshes()
 	//std::chrono start = std::chrono::now();
 	//a/uto start = glfwGetTime();
 	Mesh tri = lm.Load("../Assets/ColoredPlane.glb");
-	Texture2D tex;
-	tex.LoadFromFile(m_Allocator, "../Assets/UVtest.png");
+	//Texture2D tex;
+	Image tex = LoadImageFromFile("../Assets/UVtest.png");
 	//auto end = glfwGetTime();
 	//auto diff = (end - start) * 1000.0;
 	//fmt::print("time to load: {} ms", diff);
