@@ -246,17 +246,17 @@ struct LoadModel
 	void AddColors(Buffer& buffer, const std::byte* srcBuffer, int componentType, int vecType, size_t index)
 	{
 		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT && vecType == TINYGLTF_TYPE_VEC4)
-			AddColors<VertexColor_u16vec4>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_u16vec4>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT && vecType == TINYGLTF_TYPE_VEC3)
-			AddColors<VertexColor_u16vec3>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_u16vec3>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT && vecType == TINYGLTF_TYPE_VEC4)
-			AddColors<VertexColor_u32vec4>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_u32vec4>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT && vecType == TINYGLTF_TYPE_VEC3)
-			AddColors<VertexColor_u32vec3>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_u32vec3>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && vecType == TINYGLTF_TYPE_VEC4)
-			AddColors<VertexColor_f32vec4>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_f32vec4>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && vecType == TINYGLTF_TYPE_VEC3)
-			AddColors<VertexColor_f32vec3>(buffer, srcBuffer, index);
+			return AddColors<VertexColor_f32vec3>(buffer, srcBuffer, index);
 	}
 
 	template<typename T>

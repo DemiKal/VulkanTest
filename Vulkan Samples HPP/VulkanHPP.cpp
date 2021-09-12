@@ -27,6 +27,7 @@ __pragma(warning(pop))
 #include "Logger.hpp"
 #include "MeshManager.h"
 #include "LoadModel.h"
+#include "Texture2D.h"
 
 
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
@@ -230,6 +231,8 @@ void VulkanHPP::LoadMeshes()
 	//std::chrono start = std::chrono::now();
 	//a/uto start = glfwGetTime();
 	Mesh tri = lm.Load("../Assets/ColoredPlane.glb");
+	Texture2D tex;
+	tex.LoadFromFile(m_Allocator, "../Assets/UVtest.png");
 	//auto end = glfwGetTime();
 	//auto diff = (end - start) * 1000.0;
 	//fmt::print("time to load: {} ms", diff);
