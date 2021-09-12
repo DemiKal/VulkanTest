@@ -227,7 +227,12 @@ void VulkanHPP::LoadMeshes()
 
 	//meshManager.LoadFromFile("../Assets/ColoredTriangle.glb", aiPostProcessSteps::aiProcess_Triangulate);
 	LoadModel lm;
+	//std::chrono start = std::chrono::now();
+	//a/uto start = glfwGetTime();
 	Mesh tri = lm.Load("../Assets/ColoredPlane.glb");
+	//auto end = glfwGetTime();
+	//auto diff = (end - start) * 1000.0;
+	//fmt::print("time to load: {} ms", diff);
 	//Mesh& m = meshManager.GetMesh(0);
 	meshManager.AddMesh(tri);
 }

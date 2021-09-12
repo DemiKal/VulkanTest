@@ -24,7 +24,7 @@ struct Node
 //	}
 //}
 
-#define CONVERT_COMPONENT 
+ 
 
 
 static size_t GetTypeSize(int t)
@@ -97,8 +97,8 @@ struct LoadModel
 					positionBuffer = reinterpret_cast<const std::byte*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 					vertexCount = accessor.count;
 					vertexBuffer.AddAttribute(PositionAttribute{});
-
 				}
+
 				// Get buffer data for vertex normals
 				if (hasNormal)
 				{
@@ -142,24 +142,9 @@ struct LoadModel
 					}
 					if (hasColor)
 					{
-						//vertexBuffer.AddElement<ColorAttribute>(ColorBuffer, v);
-						//const uint16_t* r_ptr = reinterpret_cast<const uint16_t*>(colorBuffer) +  4 * v;
-						//uint16_t r  = *r_ptr;
-						//uint16_t g  = *(r_ptr + 1);
-						//uint16_t b  = *(r_ptr + 2);
-						//uint16_t a  = *(r_ptr + 3);
 						const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
 
 						AddColors(vertexBuffer, colorBuffer, accessor.componentType, accessor.type, v);
-						//const float r = static_cast<float>(ru16) / std::numeric_limits<uint16_t>::max();
-						//const float g = static_cast<float>(gu16) / std::numeric_limits<uint16_t>::max();
-						//const float b = static_cast<float>(bu16) / std::numeric_limits<uint16_t>::max();
-						//const float a = static_cast<float>(au16) / std::numeric_limits<uint16_t>::max();
-						//const float cr = convert
-						//vertexBuffer.AddElement<ColorAttribute>(r, g, b, a);
-
-
-
 					}
 
 					//Vertex vert{};
@@ -264,6 +249,14 @@ struct LoadModel
 			AddColors<VertexColor_u16vec4>(buffer, srcBuffer, index);
 		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT && vecType == TINYGLTF_TYPE_VEC3)
 			AddColors<VertexColor_u16vec3>(buffer, srcBuffer, index);
+		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT && vecType == TINYGLTF_TYPE_VEC4)
+			AddColors<VertexColor_u32vec4>(buffer, srcBuffer, index);
+		if (componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT && vecType == TINYGLTF_TYPE_VEC3)
+			AddColors<VertexColor_u32vec3>(buffer, srcBuffer, index);
+		if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && vecType == TINYGLTF_TYPE_VEC4)
+			AddColors<VertexColor_f32vec4>(buffer, srcBuffer, index);
+		if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && vecType == TINYGLTF_TYPE_VEC3)
+			AddColors<VertexColor_f32vec3>(buffer, srcBuffer, index);
 	}
 
 	template<typename T>

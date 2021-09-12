@@ -184,11 +184,12 @@ struct TangentAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct NormalAttribute : VertexAttributeNew<glm::vec3> { INHERIT_CONSTRUCTOR };
 struct BoneWeightAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, float>> { INHERIT_CONSTRUCTOR };
 struct BoneIndexAttribute : VertexAttributeNew<glm::vec<BoneIndexCount, uint32_t>> { INHERIT_CONSTRUCTOR };
-//struct VertexColor_u16vec4 : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR };
-struct VertexColor_u16vec4 : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR };
-struct VertexColor_u16vec3 : VertexAttributeNew< glm::u16vec3> { INHERIT_CONSTRUCTOR };
-struct VertexColor_u16vec2 : VertexAttributeNew< glm::u16vec2> { INHERIT_CONSTRUCTOR };
-struct VertexColor_u16vec1 : VertexAttributeNew< glm::u16vec1> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u16vec4 : VertexAttributeNew< glm::u16vec4> { INHERIT_CONSTRUCTOR};	//RGBA U16
+struct VertexColor_u16vec3 : VertexAttributeNew< glm::u16vec3> { INHERIT_CONSTRUCTOR };	//RGB U16
+struct VertexColor_u32vec4 : VertexAttributeNew< glm::uvec4> { INHERIT_CONSTRUCTOR };
+struct VertexColor_u32vec3 : VertexAttributeNew< glm::uvec3> { INHERIT_CONSTRUCTOR };	//RGBa U32
+struct VertexColor_f32vec4 : VertexAttributeNew< glm::vec4> { INHERIT_CONSTRUCTOR };	//RGBa f32
+struct VertexColor_f32vec3 : VertexAttributeNew< glm::vec3> { INHERIT_CONSTRUCTOR };	//RGBa f32
 
 
 //template <typename T>
@@ -238,7 +239,7 @@ static_assert(sizeof(glm::dvec4) == sizeof(VertexAttributeNew<glm::dvec4>));
 static_assert(sizeof(glm::vec<BoneIndexCount, float>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, float>>));
 static_assert(sizeof(glm::vec<BoneIndexCount, int>) == sizeof(VertexAttributeNew < glm::vec<BoneIndexCount, int>>));
 
-#define ATTRIBUTE_TYPES  PositionAttribute,  TexCoordAttribute, VertexColor_u16vec4, VertexColor_u16vec3,VertexColor_u16vec2,VertexColor_u16vec1, IndexAttribute_u16vec3, IndexAttribute_u32vec3 ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
+#define ATTRIBUTE_TYPES  PositionAttribute,  TexCoordAttribute, VertexColor_u16vec4, VertexColor_u16vec3, VertexColor_u32vec4, VertexColor_u32vec3,  VertexColor_f32vec4 , VertexColor_f32vec3 ,  IndexAttribute_u16vec3, IndexAttribute_u32vec3 ,  BitangentAttribute, TangentAttribute, NormalAttribute, BoneIndexAttribute, BoneWeightAttribute 
 using AttributeVariant = std::variant<ATTRIBUTE_TYPES>;
 
 
