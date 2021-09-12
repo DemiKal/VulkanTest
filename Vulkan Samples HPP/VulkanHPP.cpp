@@ -28,7 +28,7 @@ __pragma(warning(pop))
 #include "MeshManager.h"
 #include "LoadModel.h"
 #include "Texture2D.h"
-
+//#include <stb_image.h>
 
 std::vector<const char*> get_optimal_validation_layers(const std::vector<vk::LayerProperties>& supported_instance_layers);
 
@@ -170,9 +170,9 @@ void VulkanHPP::Prepare()
 
 	InitLogger();
 	InitWindow();
-	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME   }, {});
+	InitInstance(m_Context, { VK_KHR_SURFACE_EXTENSION_NAME }, {});
 	SelectPhysicalDeviceAndInstance(m_Context);
-	InitDevice(m_Context, { VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_KHR_SWAPCHAIN_EXTENSION_NAME  });
+	InitDevice(m_Context, { VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 	InitSwapchain(m_Context);
 	InitAllocator(m_Context);
 	LoadMeshes();
@@ -438,10 +438,10 @@ void VulkanHPP::InitVertices(Context& context)
 
 void VulkanHPP::InitWindow()
 {
-	vk::ApplicationInfo appInfo("Hello Triangle", 
+	vk::ApplicationInfo appInfo("Hello Triangle",
 		VK_MAKE_VERSION(1, 0, 0),
 		"No Engine",
-		VK_MAKE_API_VERSION(0, 1, 0, 0), 
+		VK_MAKE_API_VERSION(0, 1, 0, 0),
 		VK_API_VERSION_1_2);
 
 
@@ -461,7 +461,7 @@ void VulkanHPP::InitInstance(Context& context, const std::vector<const char*>& r
 {
 	LOGI("Initializing Vulkan");
 
-	 
+
 	static vk::DynamicLoader  dl;
 	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -808,7 +808,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 	attachments[0].initialLayout = vk::ImageLayout::eUndefined;
 	// After the render pass is complete, we will transition to ePresentSrcKHR layout.
 	attachments[0].finalLayout = vk::ImageLayout::ePresentSrcKHR;
-	
+
 	//depth attachment
 	attachments[1].format = vk::Format::eD32SfloatS8Uint; //TODO: set this dynamically!
 	attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
@@ -831,7 +831,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 		colorReference.layout = vk::ImageLayout::eColorAttachmentOptimal;
 		colorAttachmentReferences.push_back(colorReference);
 	}
-	
+
 	vk::AttachmentReference depthReference;
 	depthReference.attachment = 1;
 	depthReference.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
@@ -892,7 +892,7 @@ void VulkanHPP::InitRenderPass(Context& context)
 	vk::RenderPassCreateInfo renderPassInfo;
 	renderPassInfo.attachmentCount = (uint32_t)attachments.size();
 	renderPassInfo.pAttachments = attachments.data();
-	renderPassInfo.subpassCount = (uint32_t)subpasses .size();
+	renderPassInfo.subpassCount = (uint32_t)subpasses.size();
 	renderPassInfo.pSubpasses = subpasses.data();
 	renderPassInfo.dependencyCount = (uint32_t)subpassDependencies.size();
 	renderPassInfo.pDependencies = subpassDependencies.data();
@@ -943,7 +943,7 @@ void VulkanHPP::InitPipeline(Context& context)
 	depth_stencil.depthCompareOp = vk::CompareOp::eLess;
 	depth_stencil.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil.stencilTestEnable = VK_FALSE;
-	
+
 	// No multisampling.
 	vk::PipelineMultisampleStateCreateInfo multisample({}, vk::SampleCountFlagBits::e1);
 
@@ -1027,9 +1027,9 @@ void VulkanHPP::InitFrameBuffers(Context& context)
 		framebufferCreateInfo.attachmentCount = 2;
 		framebufferCreateInfo.pAttachments = attachments;
 		framebufferCreateInfo.width = context.swapchain_dimensions.width;
-		framebufferCreateInfo.height =  context.swapchain_dimensions.height;
+		framebufferCreateInfo.height = context.swapchain_dimensions.height;
 		framebufferCreateInfo.layers = 1;
-		 
+
 		context.swapchain_framebuffers.push_back(device.createFramebuffer(framebufferCreateInfo));
 	}
 }
@@ -1175,16 +1175,16 @@ void VulkanHPP::RenderTriangle(Context& context, uint32_t swapchain_index)
 	auto& triMesh = meshManager.GetMesh(0);
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, context.pipeline);
 	vk::Buffer buffer{ triMesh.m_VertexBuffer.vkBuffer };
-	cmd.bindVertexBuffers(0, buffer, { 0 }); 
+	cmd.bindVertexBuffers(0, buffer, { 0 });
 	auto indexType = triMesh.m_IndexBuffer.GetIndexType();
 
 	cmd.bindIndexBuffer(triMesh.m_IndexBuffer.vkBuffer, 0, indexType);
 
 	auto width = static_cast<float>(context.swapchain_dimensions.width);
 	auto height = static_cast<float>(context.swapchain_dimensions.height);
-	vk::Viewport vp(0, height, width  ,  -height , 0.0f, 1.0f);
-	
-	
+	vk::Viewport vp(0, height, width, -height, 0.0f, 1.0f);
+
+
 	cmd.setViewport(0, vp);
 
 	vk::Rect2D scissor({ 0, 0 }, { context.swapchain_dimensions.width, context.swapchain_dimensions.height });
@@ -1583,3 +1583,124 @@ void MouseMoveHandler(GLFWwindow* window, double posx, double posy) {
 	}
 }
 
+Image VulkanHPP::LoadImageFromFile(const std::string& path)
+{
+	int texWidth; 
+	int  texHeight;
+	int texChannels; 
+
+	stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	//std::byte* pixels = nullptr;
+	if (!pixels) {
+		LOGE("Failed to load texture file {}", path);
+	}
+
+	void* pixel_ptr = pixels;
+	VkDeviceSize imageSize = texWidth * texHeight * 4ll;
+
+	AllocatedBuffer stagingBuffer = CreateBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
+
+	void* data;
+	VK_CHECK(vmaMapMemory(m_Allocator, stagingBuffer._allocation, &data));
+
+	memcpy(data, pixel_ptr, static_cast<size_t>(imageSize));
+
+	vmaUnmapMemory(m_Allocator, stagingBuffer._allocation);
+
+	//stbi_image_free(pixels);
+
+	vk::Extent3D imageExtent;
+	imageExtent.width = static_cast<uint32_t>(texWidth);
+	imageExtent.height = static_cast<uint32_t>(texHeight);
+	imageExtent.depth = 1;
+
+	vk::Format image_format = vk::Format::eR8G8B8A8Srgb;	
+	vk::ImageCreateInfo dimg_info;// = vkinit::image_create_info(image_format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
+	dimg_info.format = image_format;	
+	dimg_info.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
+	dimg_info.extent = imageExtent;
+	dimg_info.imageType = vk::ImageType::e2D;
+	dimg_info.mipLevels = 1;	
+	dimg_info.arrayLayers = 1;	
+	dimg_info.samples = vk::SampleCountFlagBits::e1;	
+	dimg_info.tiling = vk::ImageTiling::eOptimal;
+
+	Image newImage;
+	newImage.extent = imageExtent;
+	VmaAllocationCreateInfo dimg_allocinfo = {};
+	dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	//allocate and create the image
+	VK_CHECK(vmaCreateImage(m_Allocator, reinterpret_cast<VkImageCreateInfo*>(&dimg_info),
+		&dimg_allocinfo, reinterpret_cast<VkImage*>(&newImage.image), &newImage.allocation, nullptr));
+
+	WithPrimaryCommandBuffer([&](auto& cmd)
+		{
+			VkImageSubresourceRange range;
+			range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			range.baseMipLevel = 0;
+			range.levelCount = 1;
+			range.baseArrayLayer = 0;
+			range.layerCount = 1;
+
+			VkImageMemoryBarrier imageBarrier_toTransfer = {};
+			imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+			imageBarrier_toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			imageBarrier_toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			imageBarrier_toTransfer.image = newImage.image;
+			imageBarrier_toTransfer.subresourceRange = range;
+
+			imageBarrier_toTransfer.srcAccessMask = 0;
+			imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			//barrier the image into the transfer-receive layout
+			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+
+			VkBufferImageCopy copyRegion = {};
+			copyRegion.bufferOffset = 0;
+			copyRegion.bufferRowLength = 0;
+			copyRegion.bufferImageHeight = 0;
+
+			copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			copyRegion.imageSubresource.mipLevel = 0;
+			copyRegion.imageSubresource.baseArrayLayer = 0;
+			copyRegion.imageSubresource.layerCount = 1;
+			copyRegion.imageExtent = imageExtent;
+
+			//copy the buffer into the image
+			vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+			VkImageMemoryBarrier imageBarrier_toReadable = imageBarrier_toTransfer;
+
+			imageBarrier_toReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			imageBarrier_toReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			imageBarrier_toReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			imageBarrier_toReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			//barrier the image into the shader readable layout
+			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toReadable);
+		});
+	 
+	vmaDestroyBuffer(m_Allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+	
+	vk::ImageViewCreateInfo imgViewInfo;
+	imgViewInfo.format = image_format;
+	imgViewInfo.image = newImage.image;
+	imgViewInfo.viewType = vk::ImageViewType::e2D;
+	imgViewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;// VK_IMAGE_ASPECT_COLOR_BIT;
+	imgViewInfo.subresourceRange.baseMipLevel = 0;
+	imgViewInfo.subresourceRange.levelCount = 1;
+	imgViewInfo.subresourceRange.baseArrayLayer = 0;
+	imgViewInfo.subresourceRange.layerCount = 1;
+
+
+	auto view = m_Context.device.createImageView(imgViewInfo);
+	
+	newImage.view = view;
+
+	
+
+	return newImage;
+}
