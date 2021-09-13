@@ -227,9 +227,9 @@ void VulkanHPP::LoadMeshes()
 	LoadModel lm;
 	//std::chrono start = std::chrono::now();
 	//a/uto start = glfwGetTime();
-	Mesh tri = lm.Load("../Assets/Quad.glb");
+	Mesh tri = lm.Load("../Assets/spyro.glb");
 	//Texture2D tex;
-	texture = LoadImageFromFile("../Assets/UVtest.png");
+	texture = LoadImageFromFile("../Assets/Spyro_texture.png");
 	//auto end = glfwGetTime();
 	//auto diff = (end - start) * 1000.0;
 	//fmt::print("time to load: {} ms", diff);
