@@ -157,6 +157,8 @@ void VulkanHPP::UpdateUniformBuffer(float dt)
 #pragma endregion
 
 MeshManager  meshManager;
+Image texture;
+
 std::string LoadFile(const std::string& path)
 {
 	std::ifstream stream(path);
@@ -227,7 +229,7 @@ void VulkanHPP::LoadMeshes()
 	//a/uto start = glfwGetTime();
 	Mesh tri = lm.Load("../Assets/Quad.glb");
 	//Texture2D tex;
-	Image tex = LoadImageFromFile("../Assets/UVtest.png");
+	texture = LoadImageFromFile("../Assets/UVtest.png");
 	//auto end = glfwGetTime();
 	//auto diff = (end - start) * 1000.0;
 	//fmt::print("time to load: {} ms", diff);
@@ -242,6 +244,7 @@ void VulkanHPP::SetupDescriptorSet(Context& context)
 	allocInfo.descriptorPool = context.descriptorPool;
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &context.descriptorSetLayout;
+	
 
 	context.descriptorSet = context.device.allocateDescriptorSets(allocInfo)[0];
 
@@ -253,29 +256,34 @@ void VulkanHPP::SetupDescriptorSet(Context& context)
 	//descrBufferInfo.offset = 0;
 	//descrBufferInfo.range = VK_WHOLE_SIZE;
 
-	vk::WriteDescriptorSet writeDescriptorSet;
+	vk::WriteDescriptorSet writeDescriptorSetUBO;
 	// Binding 0 : Uniform buffer
-	writeDescriptorSet.dstSet = context.descriptorSet;
-	writeDescriptorSet.descriptorCount = 1;
-	writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBuffer;
-	writeDescriptorSet.pBufferInfo = &m_Uniform->m_DescrBufferInfo;
-	// Binds this uniform buffer to binding point 0
-	writeDescriptorSet.dstBinding = 0;
+	writeDescriptorSetUBO.dstSet = context.descriptorSet;
+	writeDescriptorSetUBO.descriptorCount = 1;
+	writeDescriptorSetUBO.descriptorType = vk::DescriptorType::eUniformBuffer;
+	writeDescriptorSetUBO.pBufferInfo = &m_Uniform->m_DescrBufferInfo;
+	writeDescriptorSetUBO.dstBinding = 0;
+
+	vk::DescriptorImageInfo texDescriptor{ texture.sampler, texture.view, texture.descriptor.imageLayout };
+	vk::WriteDescriptorSet samplerDescrSet{ context.descriptorSet, 1, 0, 1, vk::DescriptorType::eCombinedImageSampler, &texDescriptor };
+
+	vk::WriteDescriptorSet descriptorsets[2] = { writeDescriptorSetUBO, samplerDescrSet };
+
 
 
 	//writeDescriptorSet.pBufferInfo = &descrBufferInfo;
 	//writeDescriptorSet.setBufferInfo()
-	context.device.updateDescriptorSets(writeDescriptorSet, nullptr);
+	context.device.updateDescriptorSets({ writeDescriptorSetUBO, samplerDescrSet }, nullptr);
 }
 
 void VulkanHPP::InitDescriptorPool(Context& context)
 {
 	// We need to tell the API the number of max. requested descriptors per type
-	vk::DescriptorPoolSize typeCounts[1];
-	// This example only uses one descriptor type (uniform buffer) and only
-	// requests one descriptor of this type
-	typeCounts[0].type = vk::DescriptorType::eUniformBuffer;
-	typeCounts[0].descriptorCount = 1;
+	std::vector<vk::DescriptorPoolSize> poolSizes =
+	{
+		vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1 },
+		vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1 },
+	};
 	// For additional types you need to add new entries in the type count list
 	// E.g. for two combined image samplers :
 	// typeCounts[1].type = vk::DescriptorType::eCombinedImageSampler;
@@ -284,26 +292,34 @@ void VulkanHPP::InitDescriptorPool(Context& context)
 	// Create the global descriptor pool
 	// All descriptors used in this example are allocated from this pool
 	vk::DescriptorPoolCreateInfo descriptorPoolInfo;
-	descriptorPoolInfo.poolSizeCount = 1;
-	descriptorPoolInfo.pPoolSizes = typeCounts;
+	descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	descriptorPoolInfo.pPoolSizes = poolSizes.data();
+	descriptorPoolInfo.maxSets = 2;
 	// Set the max. number of sets that can be requested
 	// Requesting descriptors beyond maxSets will result in an error
-	descriptorPoolInfo.maxSets = 1;
 	context.descriptorPool = context.device.createDescriptorPool(descriptorPoolInfo);
 }
 
 void VulkanHPP::InitDescriptorSetLayout(Context& context)
 {
-	static vk::DescriptorSetLayoutBinding layoutBinding;
-	layoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
-	layoutBinding.descriptorCount = 1;
-	layoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
-	layoutBinding.pImmutableSamplers = nullptr;
-	layoutBinding.binding = 0;
+	// vk::DescriptorSetLayoutBinding layoutBindings
+	//layoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+	//layoutBinding.descriptorCount = 1;
+	//layoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+	//layoutBinding.pImmutableSamplers = nullptr;
+	//layoutBinding.binding = 0;
+	
+	std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings{
+		// Binding 0 : Vertex shader uniform buffer
+		vk::DescriptorSetLayoutBinding{ 0,  vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex },
+		// Binding 1 : Fragment shader image sampler
+		vk::DescriptorSetLayoutBinding{ 1,  vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment },
+	};
 
-	static vk::DescriptorSetLayoutCreateInfo descriptorLayout;
-	descriptorLayout.bindingCount = 1;
-	descriptorLayout.pBindings = &layoutBinding;
+	
+	vk::DescriptorSetLayoutCreateInfo descriptorLayout;
+	descriptorLayout.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+	descriptorLayout.pBindings = setLayoutBindings.data();
 
 	context.descriptorSetLayout = context.device.createDescriptorSetLayout(descriptorLayout, nullptr);
 
@@ -1627,6 +1643,7 @@ Image VulkanHPP::LoadImageFromFile(const std::string& path)
 
 	Image newImage;
 	newImage.extent = imageExtent;
+	
 	VmaAllocationCreateInfo dimg_allocinfo = {};
 	dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
@@ -1715,11 +1732,9 @@ Image VulkanHPP::LoadImageFromFile(const std::string& path)
 	auto sampler = m_Context.device.createSampler(samplerCreateInfo);
 	newImage.sampler = sampler;
 
-
-
-
-
-
+	newImage.descriptor.sampler = sampler;
+	newImage.descriptor.imageView = view;
+	newImage.descriptor.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
 
 

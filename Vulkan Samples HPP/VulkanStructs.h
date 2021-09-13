@@ -60,6 +60,8 @@ struct Image : Allocation
 	vk::ImageView view;
 	vk::Sampler sampler;
 	vk::Format format{ vk::Format::eUndefined };
+	vk::DescriptorImageInfo descriptor;
+	//vk::ImageLayout layout;
 	VmaAllocation allocation;
 };
 struct Context
