@@ -114,7 +114,7 @@ struct LoadModel
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					texCoordsBuffer = reinterpret_cast<const std::byte*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-					//vertexBuffer.AddAttribute(TexCoordAttribute{});
+					vertexBuffer.AddAttribute(TexCoordAttribute{});
 
 				}
 				if (hasColor)
@@ -137,16 +137,23 @@ struct LoadModel
 						const glm::vec3* posConverted = reinterpret_cast<const glm::vec3*>(f_ptr) + v;
 						glm::vec3 pos = glm::make_vec3(f_ptr + v * 3); //* sizeof(float)
 						vertexBuffer.AddElement<PositionAttribute >(pos.x, pos.y, pos.z);
-
-
 					}
+					if (hasNormal) {}
+					if (hasTexCoord0)
+					{
+						const float* f_ptr = reinterpret_cast<const float*>(texCoordsBuffer);
+						const glm::vec2* posConverted = reinterpret_cast<const glm::vec2*>(f_ptr) + v;
+						glm::vec2 uv = glm::make_vec2(f_ptr + v * 2); //* sizeof(float)
+						vertexBuffer.AddElement<TexCoordAttribute >(uv.x, uv.y);
+					}
+
 					if (hasColor)
 					{
 						const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
 
 						AddColors(vertexBuffer, colorBuffer, accessor.componentType, accessor.type, v);
 					}
-
+					
 					//Vertex vert{};
 					//auto pos = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]), 1.0f);
 					//auto normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));

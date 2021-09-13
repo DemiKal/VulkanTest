@@ -225,7 +225,7 @@ void VulkanHPP::LoadMeshes()
 	LoadModel lm;
 	//std::chrono start = std::chrono::now();
 	//a/uto start = glfwGetTime();
-	Mesh tri = lm.Load("../Assets/ColoredPlane.glb");
+	Mesh tri = lm.Load("../Assets/Quad.glb");
 	//Texture2D tex;
 	Image tex = LoadImageFromFile("../Assets/UVtest.png");
 	//auto end = glfwGetTime();
@@ -953,8 +953,8 @@ void VulkanHPP::InitPipeline(Context& context)
 	vk::PipelineDynamicStateCreateInfo dynamic({}, dynamics);
 
 
-	std::string vertexSource = LoadFile("../Assets/shaders/triangle.vert");
-	std::string fragmentSource = LoadFile("../Assets/shaders/triangle.frag");
+	std::string vertexSource = LoadFile("../Assets/shaders/texture.vert");
+	std::string fragmentSource = LoadFile("../Assets/shaders/texture.frag");
 
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
@@ -1701,6 +1701,27 @@ Image VulkanHPP::LoadImageFromFile(const std::string& path)
 	newImage.view = view;
 
 	
+	vk::SamplerCreateInfo samplerCreateInfo;
+	samplerCreateInfo.magFilter = vk::Filter::eLinear;
+	samplerCreateInfo.minFilter = vk::Filter::eLinear;
+	samplerCreateInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+	// Max level-of-detail should match mip level count
+	//samplerCreateInfo.maxLod = static_cast<float>(1);
+	// Only enable anisotropic filtering if enabled on the devicec
+	samplerCreateInfo.maxAnisotropy = 0;// m_Context.deviceFeatures.samplerAnisotropy ? m_Context.deviceProperties.limits.maxSamplerAnisotropy : 1.0f;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE; //context.deviceFeatures.samplerAnisotropy;
+	samplerCreateInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+	
+	auto sampler = m_Context.device.createSampler(samplerCreateInfo);
+	newImage.sampler = sampler;
+
+
+
+
+
+
+
+
 
 	return newImage;
 }
